@@ -1,0 +1,8 @@
+NanoApple2 reference files, not built (the RTL used is in src/rtl, the ROMs in src/roms).
+Source: https://github.com/MiSTle-Dev/NanoApple2 commit 4977e04 (2026-03-21), GPL v3.
+  primer25k/  the Tang Primer 25K top and pins (closest to our boards: SDRAM, HDMI, MCU over SPI)
+  gowin/      the Gowin memory wrappers the machine instantiates (replaced by src/rtl/karabas)
+  misc/       sysctrl / hid / video / scandoubler / loader of the MiSTeryNano family, OSD menu apple2.xml
+  Palettes/   the .a2p palettes loaded by the upstream loader
+Parent: https://github.com/gyurco/apple2efpga commit 518f05f (2025-03-14, MiST).
+Later parts from: https://github.com/MiSTer-devel/Apple-II_MiSTer commit c701e64 (2026-10-15).
