@@ -48,7 +48,7 @@ localparam MAXPORT  = 13'd12,
 
 wire        ram_we;
 reg  [ 7:0] din;
-reg  [ 7:0] ram_dout;
+wire [ 7:0] ram_dout; // karabas: driven by the RAM instance (XST)
 reg  [ 7:0] pa_ddr, pb_ddr, tdr, tcr, mor,
             pa_latch, pb_latch;
 reg  [ 6:0] pres;
@@ -68,6 +68,7 @@ assign tirq     = tcr[TIR] & ~tcr[TIM]; // 6 => mask
 assign prfull   = { pres, fpin };
 assign prmx     = prfull[tcr[2:0]];
 
+wire tstop_cpu; // karabas: unused, the timer never stops (upstream intent)
 assign tstop = 0;
 
 // Address decoder
@@ -166,7 +167,7 @@ jt6805 u_mcu(
     .clk    ( clk       ),
     .cen    ( cen       ),
     .wr     ( wr        ),
-    .tstop  ( tstop     ),
+    .tstop  ( tstop_cpu ), // karabas: tstop is tied to 0 above, the CPU output went to the same net (two drivers)
     .addr   ( addr      ),
     .din    ( din       ),
     .dout   ( dout      ),

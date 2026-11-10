@@ -130,11 +130,13 @@ architecture rtl of vga_controller is
   signal CURRENT_COL14 : unsigned(23 downto 0);
   signal CURRENT_COL15 : unsigned(23 downto 0);
 
+  signal palette_rgbx_v : std_logic_vector(31 downto 0);  -- karabas
 begin
+  palette_rgbx <= unsigned(palette_rgbx_v);  -- karabas
 
 palette_inst: entity work.Gowin_SDPB_palette port map (
 	adb => std_logic_vector(palette_index),
-	unsigned(dout) => palette_rgbx,
+	dout => palette_rgbx_v,  -- karabas: no formal conversion on a Verilog port (XST)
 	clkb => CLK_14M,
 	ceb => '1',
 	resetb => '0',
@@ -202,6 +204,7 @@ begin
 					when "1101" => BUFFER_COL13 <= palette_rgb_in;
 					when "1110" => BUFFER_COL14 <= palette_rgb_in;
 					when "1111" => BUFFER_COL15 <= palette_rgb_in;
+					when others => null;  -- karabas: palette_index is unsigned, XST wants others
 				end case;
 				if color_addr < "11" then
 					color_addr <= color_addr + 1;
@@ -302,6 +305,7 @@ begin
 			when "01" => r := X"00"; g := X"00"; b := X"00"; -- B&W mode background
 			when "10" => r := X"00"; g := X"0F"; b := X"01"; -- green mode background color
 			when "11" => r := X"20"; g := X"08"; b := X"01"; -- amber mode background color
+			when others => null;  -- karabas: XST wants others
 		end case;
 		
 		if COLOR_LINE = '0' then  -- Monochrome mode
@@ -324,6 +328,7 @@ begin
 					when "01" => r := WHITE; g := WHITE; b := WHITE; -- white (B&W mode)
 					when "10" => r := X"00"; g := X"C0"; b := X"01"; -- green
 					when "11" => r := X"FF"; g := X"80"; b := X"01"; -- amber 
+					when others => null;  -- karabas: XST wants others
 				end case;
 			end if;
 			
@@ -354,6 +359,7 @@ begin
 					when "1011"      => r := X"BC"; g := X"D6"; b := X"00"; -- yellow
 					when "1101"      => r := X"6C"; g := X"E6"; b := X"B8"; -- aquamarine
 					when "1111"      => r := WHITE_NTSC; g := WHITE_NTSC; b := WHITE_NTSC; -- white
+					when others => null;  -- karabas: XST wants others
 				end case;
 				
 			elsif COLOR_PALETTE = "01" then
@@ -377,6 +383,7 @@ begin
 					when "1011"      => r := X"FE"; g := X"FE"; b := X"00"; -- 13 - yellow
 					when "1101"      => r := X"67"; g := X"FC"; b := X"A4"; -- 14 - aquamarine
 					when "1111"      => r := WHITE; g := WHITE; b := WHITE; -- 15 - white
+					when others => null;  -- karabas: XST wants others
 				end case;
 				
 				elsif COLOR_PALETTE = "10" then
@@ -398,6 +405,7 @@ begin
 					when "1011"      => r := X"DC"; g := X"CD"; b := X"16"; -- yellow
 					when "1101"      => r := X"5D"; g := X"F7"; b := X"84"; -- aquamarine
 					when "1111"      => r := WHITE; g := WHITE; b := WHITE; -- white
+					when others => null;  -- karabas: XST wants others
 				end case;
 			else
 					
@@ -419,6 +427,7 @@ begin
 						when "1011"      =>  r := CURRENT_COL13(23 downto 16); g := CURRENT_COL13(15 downto 8); b := CURRENT_COL13(7 downto 0); -- yellow
 						when "1101"      =>  r := CURRENT_COL14(23 downto 16); g := CURRENT_COL14(15 downto 8); b := CURRENT_COL14(7 downto 0); -- aquamarine
 						when "1111"      =>  r := CURRENT_COL15(23 downto 16); g := CURRENT_COL15(15 downto 8); b := CURRENT_COL15(7 downto 0); -- white
+						when others => null;  -- karabas: XST wants others
 					end case;	
 					
 			end if;

@@ -52,6 +52,7 @@ entity apple2 is
     STB            : buffer std_logic;           -- Pulses high when C04x read
     IO_SELECT      : out std_logic_vector(7 downto 0);
     DEVICE_SELECT  : out std_logic_vector(7 downto 0);
+    IO_STROBE      : out std_logic;              -- karabas: C800 - CFFF of the cards (was internal)
 	 -- load different video roms
     ioctl_addr     : in  std_logic_vector(24 downto 0);
     ioctl_data     : in  std_logic_vector(7 downto 0);
@@ -124,7 +125,8 @@ architecture rtl of apple2 is
   signal SOFTSWITCH_SELECT : std_logic;
   signal ROM_SELECT : std_logic;
   signal GAMEPORT_SELECT : std_logic;
-  signal IO_STROBE : std_logic;
+  -- karabas: IO_STROBE is a port now
+  -- signal IO_STROBE : std_logic;
   signal HRAM_CONTROL : std_logic;
 
   -- Speaker signal
@@ -150,7 +152,9 @@ architecture rtl of apple2 is
   signal R_W_n     : std_logic;
 
   signal video_rom_select : std_logic;
+  signal rom_out_v : std_logic_vector(7 downto 0);  -- karabas
 begin
+  rom_out <= unsigned(rom_out_v);  -- karabas
 
   CLK_2M <= Q3;
 
@@ -509,7 +513,7 @@ begin
 
 roms :  entity work.Gowin_pROM_apple2
 port map (
-    unsigned(dout) => rom_out,
+    dout => rom_out_v,  -- karabas: no formal conversion on a Verilog port (XST)
     clk => CLK_14M,
     oce => '1',
     ce => '1',

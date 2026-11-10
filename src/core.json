@@ -1,0 +1,26 @@
+{
+    "id": "apple2",
+    "name": "Apple //e",
+    "build": "00000000",
+    "visible": true,
+    "type": "osd",
+    "order": 0,
+    "eeprom_bank": 255,
+    "rtc_mode": 0,
+    "boards": {
+        "go": {"bitstream": "karabas_go.bin"},
+        "mini": {"bitstream": "karabas_mini.bin"},
+        "minig": {"bitstream": "karabas_minig.bin"}
+    },
+    "osd": [
+    {"type": "F", "name": "Disk 1", "slot": 0, "extensions": ".nib", "dir": "/apple2", "hotkey": "Menu+F1"},
+    {"type": "F", "name": "Disk 2", "slot": 1, "extensions": ".nib", "dir": "/apple2", "hotkey": "Menu+F2"},
+    {"type": "F", "name": "Hard disk", "slot": 2, "extensions": ".hdv,.po", "dir": "/apple2", "hotkey": "Menu+F3"},
+    {"type": "S", "name": "CPU", "options": ["65C02", "6502"], "default": 0},
+    {"type": "S", "name": "Monitor", "options": ["Color", "B&W", "Green", "Amber"], "default": 0, "hotkey": "Menu+M"},
+    {"type": "S", "name": "Palette", "options": ["NTSC", "IIgs", "AppleWin", "Custom"], "default": 0},
+    {"type": "S", "name": "Mockingbrd", "options": ["On", "Off"], "default": 0},
+    {"type": "S", "name": "Mouse", "options": ["On", "Off"], "default": 0},
+    {"type": "T", "name": "Reset", "hotkey": "F12"}
+    ]
+}

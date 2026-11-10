@@ -1,3 +1,4 @@
+-- karabas: VHDL-93 bit strings (were 10x"..")
 --
 -- Mockingboard clone for the Apple II
 -- Model A: two AY-3-8913 chips for six audio channels
@@ -65,6 +66,7 @@ entity MOCKINGBOARD is
   signal rirq             : std_logic;
   
   signal PSG_EN   : std_logic;
+  signal zero8    : std_logic_vector(7 downto 0) := (others => '0');  -- karabas
   signal VIA_CE_F, VIA_CE_R, PHASE_ZERO_D : std_logic;
 
   signal ym_audio_out_l_signed : unsigned(9 downto 0);
@@ -187,17 +189,17 @@ psg_left: entity work.jt49_bus port map (
  C      => o_psg_cl,
  sample => open,
  
- IOA_in  => (others => '0'),
+ IOA_in  => zero8,  -- karabas: no aggregate on a Verilog port (XST)
  IOA_out => open,
  IOA_oe  => open,
  
- IOB_in  => (others => '0'),
+ IOB_in  => zero8,  -- karabas: no aggregate on a Verilog port (XST)
  IOB_out => open,
  IOB_oe  => open
  );
 
   ym_audio_out_l <= std_logic_vector(unsigned("00" & o_psg_al) + unsigned("00" & o_psg_bl) + unsigned("00" & o_psg_cl));
-  ym_audio_out_l_signed <= unsigned(ym_audio_out_l) - 10x"200";
+  ym_audio_out_l_signed <= unsigned(ym_audio_out_l) - "1000000000";
   O_AUDIO_L <= std_logic_vector(ym_audio_out_l_signed);
 
 -- Right Channel Combo
@@ -278,17 +280,17 @@ psg_right: entity work.jt49_bus port map (
  C      => o_psg_cr,
  sample => open,
  
- IOA_in  => (others => '0'),
+ IOA_in  => zero8,  -- karabas: no aggregate on a Verilog port (XST)
  IOA_out => open,
  IOA_oe  => open,
  
- IOB_in  => (others => '0'),
+ IOB_in  => zero8,  -- karabas: no aggregate on a Verilog port (XST)
  IOB_out => open,
  IOB_oe  => open
  );
  
   ym_audio_out_r <= std_logic_vector(unsigned("00" & o_psg_ar) + unsigned("00" & o_psg_br) + unsigned("00" & o_psg_cr));
-  ym_audio_out_r_signed <= unsigned(ym_audio_out_r) - 10x"200";
+  ym_audio_out_r_signed <= unsigned(ym_audio_out_r) - "1000000000";
   O_AUDIO_R <= std_logic_vector(ym_audio_out_r_signed);
 
 end architecture RTL;

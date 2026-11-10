@@ -54,7 +54,9 @@ architecture rtl of video_generator is
 
   
   signal video_rom_input_addr: std_logic_vector(12 downto 0);
+  signal video_rom_out_v : std_logic_vector(7 downto 0);  -- karabas
 begin
+  video_rom_out <= unsigned(video_rom_out_v);  -- karabas
 
   -----------------------------------------------------------------------------
   --
@@ -102,7 +104,7 @@ begin
 
 videorom: entity work.Gowin_SDPB_8k port map (
         adb => video_rom_input_addr,
-        unsigned(dout) => video_rom_out,
+        dout => video_rom_out_v,  -- karabas: no formal conversion on a Verilog port (XST)
         clkb => CLK_14M,
         ceb => '1',
         resetb => '0',

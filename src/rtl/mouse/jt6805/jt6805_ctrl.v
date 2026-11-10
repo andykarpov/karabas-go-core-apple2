@@ -46,12 +46,13 @@ module jt6805_ctrl(
 );
 
 `include "6805_param.vh"
+// karabas: declared before 6805.vh assigns them (XST: no implicit nets declared later)
+wire [4:0] jsr_sel;
+wire       halt, swi, ni;
 `include "6805.vh"
 
-wire [4:0] jsr_sel;
 reg  [2:0] iv_sel;
 reg        irq_l, pendng;
-wire       halt, swi, ni;
 wire [3:0] nx_ualo = uaddr[3:0] + 1'd1;
 
 always @(posedge clk, posedge rst) begin

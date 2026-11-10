@@ -625,8 +625,8 @@ always @(posedge clk) begin
 		bit_en <= 0;
 		if (clk_en) begin
 			rx_filter <= { rx, rx_filter[3:1] };
-			if ({ rx, rx_filter[3:1] }  == 4'b0000) rx_filtered = 0;
-			if ({ rx, rx_filter[3:1] }  == 4'b1111) rx_filtered = 1;
+			if ({ rx, rx_filter[3:1] }  == 4'b0000) rx_filtered <= 0; // karabas: <= (XST: no mixed blocking)
+			if ({ rx, rx_filter[3:1] }  == 4'b1111) rx_filtered <= 1; // karabas
 			cnt <= cnt + 1'd1;
 			case (clk_mult)
 				1: bit_en <= cnt[3:0] == (start_pos[3:0] + 4'd7);
@@ -759,8 +759,9 @@ end
 assign busy = bit_cnt != 0;
 assign tx = shift_reg[0];
 
+// karabas: start_d at module level (XST: no declarations in an unnamed block)
+reg start_d;
 always @(posedge clk) begin
-	reg start_d;
 
 	if (reset) begin
 		bit_cnt <= 0;

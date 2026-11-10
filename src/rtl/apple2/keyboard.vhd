@@ -1,3 +1,4 @@
+-- karabas: VHDL-93 bit strings (were 7X"..")
 -------------------------------------------------------------------------------
 --
 -- USB Keyboard interface for the Apple //e
@@ -71,11 +72,13 @@ architecture rtl of keyboard is
 
   signal state, next_state : states;
 
+  signal rom_out_v : std_logic_vector(7 downto 0);  -- karabas
 begin
+  rom_out <= unsigned(rom_out_v);  -- karabas
 
 keyboard_rom : entity work.Gowin_pROM_key
     port map (
-        unsigned(dout) => rom_out,
+        dout => rom_out_v,  -- karabas: no formal conversion on a Verilog port (XST)
         clk => CLK_14M,
         oce => '1',
         ce => '1',
@@ -249,94 +252,94 @@ keyboard_rom : entity work.Gowin_pROM_key
   -- see "Keyboard Matrix A2e", drawing number 699-00760C;  decimal values converted to hex (e.g. CR -> 66 -> 0x42)
   with latched_code(6 downto 0) select
     junction_code <=
-     X"00" when 7X"29", -- Escape ("esc" key)
-     X"01" when 7X"1E", -- 1x
-     X"02" when 7X"1F", -- 2x
-     X"03" when 7X"20", -- 3x
-     X"04" when 7X"21", -- 4x
-     X"05" when 7X"23", -- 6x
-     X"06" when 7X"22", -- 5x
-     X"07" when 7X"24", -- 7x
-     X"08" when 7X"25", -- 8x
-     X"09" when 7X"26", -- 9x
+     X"00" when "0101001", -- Escape ("esc" key)
+     X"01" when "0011110", -- 1x
+     X"02" when "0011111", -- 2x
+     X"03" when "0100000", -- 3x
+     X"04" when "0100001", -- 4x
+     X"05" when "0100011", -- 6x
+     X"06" when "0100010", -- 5x
+     X"07" when "0100100", -- 7x
+     X"08" when "0100101", -- 8x
+     X"09" when "0100110", -- 9x
 
-     X"0A" when 7X"2B", -- Horizontal Tab
-     X"0B" when 7X"14", -- Q
-     X"0C" when 7X"1A", -- W
-     X"0D" when 7X"08", -- E
-     X"0E" when 7X"15", -- R
-     X"0F" when 7X"1C", -- Y
-     X"10" when 7X"17", -- T
-     X"11" when 7X"18", -- U
-     X"12" when 7X"0C", -- I
-     X"13" when 7X"12", -- O
+     X"0A" when "0101011", -- Horizontal Tab
+     X"0B" when "0010100", -- Q
+     X"0C" when "0011010", -- W
+     X"0D" when "0001000", -- E
+     X"0E" when "0010101", -- R
+     X"0F" when "0011100", -- Y
+     X"10" when "0010111", -- T
+     X"11" when "0011000", -- U
+     X"12" when "0001100", -- I
+     X"13" when "0010010", -- O
 
-     X"14" when 7X"04", -- A
-     X"15" when 7X"07", -- D
-     X"16" when 7X"16", -- S
-     X"17" when 7X"0B", -- H
-     X"18" when 7X"09", -- F
-     X"19" when 7X"0A", -- G
-     X"1A" when 7X"0D", -- J
-     X"1B" when 7X"0E", -- K
-     X"1C" when 7X"33", -- ;
-     X"1D" when 7X"0F", -- L
+     X"14" when "0000100", -- A
+     X"15" when "0000111", -- D
+     X"16" when "0010110", -- S
+     X"17" when "0001011", -- H
+     X"18" when "0001001", -- F
+     X"19" when "0001010", -- G
+     X"1A" when "0001101", -- J
+     X"1B" when "0001110", -- K
+     X"1C" when "0110011", -- ;
+     X"1D" when "0001111", -- L
 
-     X"1E" when 7X"1D", -- Z
-     X"1F" when 7X"1B", -- X
-     X"20" when 7X"06", -- C
-     X"21" when 7X"19", -- V
-     X"22" when 7X"05", -- B
-     X"23" when 7X"11", -- N
-     X"24" when 7X"10", -- M
-     X"25" when 7X"36", -- ,
-     X"26" when 7X"37", -- .
-     X"27" when 7X"38", -- /
+     X"1E" when "0011101", -- Z
+     X"1F" when "0011011", -- X
+     X"20" when "0000110", -- C
+     X"21" when "0011001", -- V
+     X"22" when "0000101", -- B
+     X"23" when "0010001", -- N
+     X"24" when "0010000", -- M
+     X"25" when "0110110", -- ,
+     X"26" when "0110111", -- .
+     X"27" when "0111000", -- /
 
-     x"28" when 7x"54", -- KP /
---   X"29" when 7x"6b", -- KP Left
-     X"2A" when 7x"62", -- KP 0
-     X"2B" when 7x"59", -- KP 1
-     X"2C" when 7x"5A", -- KP 2
-     X"2D" when 7x"5B", -- KP 3
-     X"2E" when 7X"31", -- \
-     X"2F" when 7X"2E", -- =
-     X"30" when 7X"27", -- 0
-     X"31" when 7X"2D", -- -
+     x"28" when "1010100", -- KP /
+--   X"29" when "1101011", -- KP Left
+     X"2A" when "1100010", -- KP 0
+     X"2B" when "1011001", -- KP 1
+     X"2C" when "1011010", -- KP 2
+     X"2D" when "1011011", -- KP 3
+     X"2E" when "0110001", -- \
+     X"2F" when "0101110", -- =
+     X"30" when "0100111", -- 0
+     X"31" when "0101101", -- -
 
 --   x"32" when 7x"",   -- KP )
---   X"33" when 7X"76", -- KP Escape ("esc" key)
-     X"34" when 7x"5C", -- KP 4
-     X"35" when 7x"5D", -- KP 5
-     X"36" when 7x"5E", -- KP 6
-     X"37" when 7x"5F", -- KP 7
-     X"38" when 7X"35", -- `
-     X"39" when 7X"13", -- P
-     X"3A" when 7X"2F", -- [
-     X"3B" when 7X"30", -- ]
+--   X"33" when "1110110", -- KP Escape ("esc" key)
+     X"34" when "1011100", -- KP 4
+     X"35" when "1011101", -- KP 5
+     X"36" when "1011110", -- KP 6
+     X"37" when "1011111", -- KP 7
+     X"38" when "0110101", -- `
+     X"39" when "0010011", -- P
+     X"3A" when "0101111", -- [
+     X"3B" when "0110000", -- ]
 
-     X"3C" when 7X"55", -- KP *
---   X"3D" when 7X"74", -- KP Right
-     X"3E" when 7X"60", -- KP 8
-     X"3F" when 7X"61", -- KP 9
-     X"40" when 7X"63", -- KP .
-     X"41" when 7X"57", -- KP +
-     X"42" when 7X"58", -- Carriage return ("enter" key)
-     X"43" when 7X"52", -- (up arrow)
-     X"44" when 7X"2C", -- Space
-     X"45" when 7X"34", -- '
+     X"3C" when "1010101", -- KP *
+--   X"3D" when "1110100", -- KP Right
+     X"3E" when "1100000", -- KP 8
+     X"3F" when "1100001", -- KP 9
+     X"40" when "1100011", -- KP .
+     X"41" when "1010111", -- KP +
+     X"42" when "1011000", -- Carriage return ("enter" key)
+     X"43" when "1010010", -- (up arrow)
+     X"44" when "0101100", -- Space
+     X"45" when "0110100", -- '
 
---   X"46" when 7X"4a", -- ?
---   X"47" when 7X"29", -- KP Space
+--   X"46" when "1001010", -- ?
+--   X"47" when "0101001", -- KP Space
 --   X"48" when 7x"",   -- KP (
-     X"49" when 7X"56", -- KP -
-     X"4A" when 7X"28", -- KP return
+     X"49" when "1010110", -- KP -
+     X"4A" when "0101000", -- KP return
 --   X"4B" when 7X"",   -- KP ,
-     X"4C" when 7X"4C", -- Del key - mapped to character 127 ("rub" / "delete" - shows as a square cursor characters)
-     X"4E" when 7X"2A", -- KP del (backspace - mapped to left)
-     X"4D" when 7X"51", -- down arrow
-     X"4E" when 7X"50", -- left arrow
-     X"4F" when 7X"4F", -- right arrow
+     X"4C" when "1001100", -- Del key - mapped to character 127 ("rub" / "delete" - shows as a square cursor characters)
+     X"4E" when "0101010", -- KP del (backspace - mapped to left)
+     X"4D" when "1010001", -- down arrow
+     X"4E" when "1010000", -- left arrow
+     X"4F" when "1001111", -- right arrow
 
      X"FF" when others;
 

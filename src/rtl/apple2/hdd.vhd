@@ -81,7 +81,11 @@ architecture rtl of hdd is
   constant PRODOS_STATUS_NO_DEVICE : unsigned := X"28";
   constant PRODOS_STATUS_PROTECT   : unsigned := X"2B";
 
+  signal ram_do_v : std_logic_vector(7 downto 0);  -- karabas
+  signal sec_D_OUT_v : std_logic_vector(7 downto 0);  -- karabas
 begin
+  ram_do <= unsigned(ram_do_v);  -- karabas
+  sec_D_OUT <= unsigned(sec_D_OUT_v);  -- karabas
   sector <= reg_block_h & reg_block_l;
 
   cpu_interface : process (CLK_14M)
@@ -185,7 +189,7 @@ sec_storage : entity work.Gowin_DPB_track_buffer_b
 port map (
 	ada     => std_logic_vector(ram_addr),
 	dina    => std_logic_vector(ram_di), 
-  unsigned(douta) => ram_do, 
+  douta => ram_do_v,   -- karabas: no formal conversion on a Verilog port (XST)
 	clka    => clk2,
 	ocea    => '1', 
 	cea     => '1', 
@@ -199,7 +203,7 @@ port map (
 	wreb    => sec_we,
 	adb     => std_logic_vector(sec_addr),
 	dinb    => std_logic_vector(D_IN),
-	unsigned(doutb) => sec_D_OUT
+	doutb => sec_D_OUT_v  -- karabas: no formal conversion on a Verilog port (XST)
 );
 
 -- Dual-ported RAM holding the contents of the sector
