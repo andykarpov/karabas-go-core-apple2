@@ -590,8 +590,9 @@ kg_osd_overlay #(.H_OFFSET(104), .V_OFFSET(33), .H_DIV4_WIDTH(1100)) osd (
 
 // ------------------------------------------------------------------ audio
 
-// the speaker (a square wave) and the two PSG channels of the Mockingboard (10 bits: the sum of three
-// channels minus 512, as signed) on clk_sys
+// the speaker (a square wave) and the two PSG channels of the Mockingboard on clk_sys. mockingboard.vhd
+// gives the sum of its three channels (0..765) minus 512 as 10 bits: adding 512 back gives the sum,
+// 0 in silence (as a signed number the silence was -512, a large DC step when the card starts)
 reg [2:0] spk_s = 3'd0;
 reg [9:0] psg_l_s = 10'd0, psg_r_s = 10'd0, psg_l_q = 10'd0, psg_r_q = 10'd0;
 always @(posedge clk_sys) begin
@@ -602,8 +603,10 @@ always @(posedge clk_sys) begin
 	psg_r_s <= psg_r_q;
 end
 wire signed [15:0] spk16 = spk_s[2] ? 16'sd6000 : -16'sd6000;
-wire signed [15:0] mb_l = sw_no_mb ? 16'sd0 : { psg_l_s[9], psg_l_s, 5'd0 };
-wire signed [15:0] mb_r = sw_no_mb ? 16'sd0 : { psg_r_s[9], psg_r_s, 5'd0 };
+wire [9:0] psg_l_u = psg_l_s + 10'h200;
+wire [9:0] psg_r_u = psg_r_s + 10'h200;
+wire signed [15:0] mb_l = sw_no_mb ? 16'sd0 : { 2'b00, psg_l_u, 4'd0 };
+wire signed [15:0] mb_r = sw_no_mb ? 16'sd0 : { 2'b00, psg_r_u, 4'd0 };
 wire signed [16:0] mix_l = spk16 + mb_l;
 wire signed [16:0] mix_r = spk16 + mb_r;
 wire [15:0] aud_l = (mix_l[16] != mix_l[15]) ? { mix_l[16], { 15{ !mix_l[16] } } } : mix_l[15:0];

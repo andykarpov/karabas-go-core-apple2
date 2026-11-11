@@ -172,6 +172,7 @@ static void core_step() {
 		if (trace_we > 0 && !top->reset_cold) { trace_we--; printf("[%8.3f ms] we %c %04x = %02x\n", sys_cycles * 1000.0 / SYS_HZ, top->ram_aux ? 'A' : 'M', top->ram_addr, top->ram_din); }
 	}
 	if (top->video) st_video++;
+	{ static int ospk = 0; if (top->speaker != ospk) { static int n = 0; if (getenv("FB_DEBUG") && n++ < 3 || n % 500 == 0) printf("[%8.3f ms] speaker %d (%d)\n", sys_cycles * 1000.0 / SYS_HZ, top->speaker, n); ospk = top->speaker; } }
 	// FB_DEBUG: where the points of a line are, counted from the falling edge of HBL
 	static int vx = 0, vmin = 9999, vmax = -1; static bool ohbl = true;
 	if (!top->hbl && ohbl) vx = 0; else vx++;

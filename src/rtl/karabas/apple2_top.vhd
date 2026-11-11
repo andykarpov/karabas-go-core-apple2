@@ -317,7 +317,9 @@ begin
   sd_rd <= sd_rd_i;
   sd_wr <= sd_wr_i;
 
-  -- mounting: a change of an image (or 2.2 s after start, as upstream) reloads the track
+  -- mounting: a change of an image (or 2.2 s after start, as upstream) reloads the track.
+  -- karabas: the mounts stay over a reset (upstream cleared them only without the PLL): the
+  -- firmware sends img_mounted once, at the mount; a cleared DISK_MOUNT took the disk away for good
   mount : process(clk_sys)
     variable reset_cnt : integer range 0 to 67108863 := 64000000;
   begin
@@ -325,8 +327,6 @@ begin
       disk_mount_d   <= DISK_MOUNT;
       disk_chg_trg_d <= disk_chg_trg;
       if reset_cold = '1' then
-        DISK_MOUNT  <= "00";
-        hdd_mounted <= '0';
         disk_chg_trg <= '0';
         reset_cnt := 64000000;
       else
