@@ -181,7 +181,7 @@ psg_left: entity work.jt49_bus port map (
  bc1    => o_pb_l(0),
  din    => i_psg_l,
  
- sel    => '0',
+ sel    => '1',  -- karabas: no /2 (was '0': the AY ran at 511 kHz, tones an octave low)
  dout   => o_psg_l,
  sound  => open, -- ym_audio_out_l, -- combined channel output
  A      => o_psg_al,      -- linearised channel output
@@ -272,7 +272,7 @@ psg_right: entity work.jt49_bus port map (
  bc1    => o_pb_r(0),
  din    => i_psg_r,
  
- sel    => '0',
+ sel    => '1',  -- karabas: no /2 (was '0': the AY ran at 511 kHz, tones an octave low)
  dout   => o_psg_r,
  sound  => open, -- ym_audio_out_r, -- combined channel output
  A      => o_psg_ar,      -- linearised channel output

@@ -138,8 +138,16 @@ module tb_apple2 (
 		.sd_rd_data(sd_rd_data),
 		.sd_rd_byte_strobe(sd_rd_byte_strobe),
 		.sd_wr_data(sd_wr_data),
+		.ssc_bytes(1'b1),
 		.uart_rx(1'b1),
 		.uart_tx(),
+		.uart_rts_n(),
+		.ser_out_avail(),
+		.ser_out_data(),
+		.ser_out_strobe(1'b0),
+		.ser_status(),
+		.ser_in_strobe(1'b0),
+		.ser_in_data(8'h00),
 		.disk_active(disk_active)
 	);
 

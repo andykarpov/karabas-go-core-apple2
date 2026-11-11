@@ -1,7 +1,7 @@
 {
     "id": "apple2",
     "name": "Apple //e",
-    "build": "26111104",
+    "build": "26111105",
     "visible": true,
     "type": "osd",
     "order": 0,
@@ -21,6 +21,7 @@
     {"type": "S", "name": "Palette", "options": ["NTSC", "IIgs", "AppleWin", "Custom"], "default": 0},
     {"type": "S", "name": "Mockingbrd", "options": ["On", "Off"], "default": 0},
     {"type": "S", "name": "Mouse", "options": ["On", "Off"], "default": 0},
-    {"type": "T", "name": "Reset", "hotkey": "F12"}
+    {"type": "S", "name": "Serial", "options": ["Off", "USB UART", "ESP Wi-Fi"], "default": 0, "index": 9},
+    {"type": "T", "name": "Reset", "hotkey": "F12", "index": 8}
     ]
 }

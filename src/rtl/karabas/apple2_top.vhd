@@ -83,9 +83,18 @@ entity apple2_top is
     sd_rd_byte_strobe : in std_logic;
     sd_wr_data     : out std_logic_vector(7 downto 0);
 
-    -- SSC
+    -- SSC: ssc_bytes 0 = the 6551 on uart_rx / uart_tx (ESP module, 115200 by the DIP switches),
+    -- 1 = the byte 6551 of the upstream (glb6551) on the ser_* ports, clk_sys (the mcu uart)
+    ssc_bytes      : in  std_logic;
     uart_rx        : in  std_logic;
     uart_tx        : out std_logic;
+    uart_rts_n     : out std_logic;
+    ser_out_avail  : out std_logic_vector(7 downto 0);   -- bytes of the Apple to send
+    ser_out_data   : out std_logic_vector(7 downto 0);   -- the first of them
+    ser_out_strobe : in  std_logic;                      -- taken (a rising edge)
+    ser_status     : out std_logic_vector(31 downto 0);  -- bitrate (bytes swapped), data bits ...
+    ser_in_strobe  : in  std_logic;                      -- a byte for the Apple (a rising edge)
+    ser_in_data    : in  std_logic_vector(7 downto 0);
 
     disk_active    : out std_logic_vector(1 downto 0)
   );
@@ -562,9 +571,11 @@ begin
   end process;
 
   ---------------------------------------------------------------------------
-  -- slot 2: Super Serial Card, 9600 8N1 (SW1 / SW2 as the upstream defaults)
+  -- slot 2: Super Serial Card, 8N1 (SW2 as the upstream default)
 
-  ssc_sw1 <= "000111";   -- 9600 baud, the default of the upstream OSD (value 14, bits reversed)
+  -- karabas: 115200 for the ESP module (baud code 0: 16 x the 1.8432 MHz clock), else 9600
+  ssc_sw1 <= "000000" when ssc_bytes = '0' else
+             "000111";   -- 9600 baud, the default of the upstream OSD (value 14, bits reversed)
   ssc_sw2 <= "00010";    -- 8 data bits, no parity, 1 stop bit, no LF after CR
   nullmdm1 <= '0';
   nullmdm2 <= '0';
@@ -588,19 +599,19 @@ begin
     UART_RX        => uart_rx,
     UART_TX        => uart_tx,
     UART_CTS       => nullmdm1,
-    UART_RTS       => open,
+    UART_RTS       => uart_rts_n,
     UART_DCD       => nullmdm2,
     UART_DSR       => nullmdm2,
     UART_DTR       => open,
     clk_sys        => clk_sys,
-    wifimodem      => '0',
-    serial_data_out_available => open,
+    wifimodem      => ssc_bytes,
+    serial_data_out_available => ser_out_avail,
     serial_data_in_free       => open,
-    serial_strobe_out         => '0',
-    serial_data_out           => open,
-    serial_status_out         => open,
-    serial_strobe_in          => '0',
-    serial_data_in            => (others => '0')
+    serial_strobe_out         => ser_out_strobe,
+    serial_data_out           => ser_out_data,
+    serial_status_out         => ser_status,
+    serial_strobe_in          => ser_in_strobe,
+    serial_data_in            => ser_in_data
   );
 
   ---------------------------------------------------------------------------

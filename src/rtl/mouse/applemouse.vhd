@@ -69,7 +69,21 @@ architecture rtl of applemouse is
   signal my         : signed(8 downto 0);
   signal enc_x      : std_logic_vector(1 downto 0);
   signal enc_y      : std_logic_vector(1 downto 0);
-  signal div_cnt    : unsigned(10 downto 0);
+  signal div_cnt    : unsigned(11 downto 0);  -- karabas: 12 bits, x and y apart (was 11, both at 0)
+
+  -- karabas: the sum of two 9 bit steps, limited to +-255
+  function sat_add(p, q : signed(8 downto 0)) return signed is
+    variable s : signed(9 downto 0);
+  begin
+    s := resize(p, 10) + resize(q, 10);
+    if s > 255 then
+      return to_signed(255, 9);
+    elsif s < -255 then
+      return to_signed(-255, 9);
+    else
+      return s(8 downto 0);
+    end if;
+  end function;
 
 begin
 
@@ -84,6 +98,8 @@ begin
         div_cnt <= (others => '0');
       else
         div_cnt <= div_cnt + 1;
+        -- karabas: a step of x at 0, of y at 2048 (3.5 kHz each): the 6805 polls the encoder
+        -- lines and lost steps when both moved on the same clock (a diagonal)
         if div_cnt = 0 then
 
           if mx(8) = '1' then
@@ -101,7 +117,9 @@ begin
             end if;
             mcu_pb_in(1) <= enc_x(1);
           end if;
+        end if;
 
+        if div_cnt = 2048 then
           if my(8) = '1' then
             my <= my + 1;
             enc_y <= enc_y(0) & not enc_y(1);
@@ -122,8 +140,10 @@ begin
 
         if STROBE = '1' then
           pressed <= BUTTON;
-          mx <= X;
-          my <= Y;
+          -- karabas: add the report to the steps still to go (was mx <= X: a report before the
+          -- last one was stepped out dropped the rest of it), limited to +-255
+          mx <= sat_add(mx, X);
+          my <= sat_add(my, Y);
         end if;
       end if;
     end if;
