@@ -111,6 +111,14 @@ Mini G, сборка **26111111**: 8868 LUT (58 %), 3024 slices (80 %), 42 RAMB1
 - Модуль Mini G — ESP8266 (AT 1.7.6, «Wroom 02»), линий reset / boot у Mini G нет. Ф5: на Go / Mini разводка ESP другая — проверить пины, `ESP_RESET_N` / `ESP_BOOT_N` держать в Z.
 - Замечено один раз: F12 сразу после смены Serial — машина осталась на «Apple //e», следующие F12 загружают DOS.
 
+## Итоги Ф5 (2026-11-11)
+
+Сборка **26111112** всех плат (один `apple2.kg`), все ограничения выполнены: Mini G 8862 LUT (58 %), Mini 8877 LUT (59 %), Go 6972 LUT (46 %, без HDMI); 42 RAMB16 у всех. На Mini G релизный `.kg` загружает DOS 3.3; Go и Mini на плате не запускались.
+
+- Верхи Go и Mini — из верха Mini G по образцу core-atarist: Mini — без IBUFG на MCU_SCK (не тактовый пин), сигма-дельта звук AUDIO_L / AUDIO_R, остальное как Mini G (HDMI, FT_CLK_OUT); Go — VGA: пиксели и синхро регистрируются на clk_pix (выход OSD — 11 уровней логики, не укладывался в полтакта), V_CLK — инвертированный clk_pix (ЦАП берёт пиксель в середине), FT_OE_N = 1, выходы флоппи 0, FLASH_CS_N = 1.
+- ESP на Go / Mini — те же UART_RX / UART_TX / UART_CTS (как у ядра меню), ESP_RESET_N / ESP_BOOT_N в Z.
+- Документы: README / README.ru (платы, OSD, клавиши), `docs/GUIDE.md` (руководство, терминал SSC с ESP: Enter + Ctrl+J).
+
 ## Фазы
 
 Ветка и один PR на фазу, слияние в конце фазы.
