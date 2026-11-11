@@ -435,8 +435,8 @@ begin
     D_OUT          => DISK_DO,
     D1_ACTIVE      => D1_ACTIVE,
     D2_ACTIVE      => D2_ACTIVE,
-    D1_WP          => floppy_wp(0) or DISK_DSK(0),  -- karabas: sector images read only (for now)
-    D2_WP          => floppy_wp(1) or DISK_DSK(1),
+    D1_WP          => floppy_wp(0),
+    D2_WP          => floppy_wp(1),
     TRACK1         => TRACK1,
     TRACK1_ADDR    => TRACK1_RAM_ADDR,
     TRACK1_DO      => TRACK1_RAM_DO,

@@ -1,7 +1,7 @@
 {
     "id": "apple2",
     "name": "Apple //e",
-    "build": "26111103",
+    "build": "26111104",
     "visible": true,
     "type": "osd",
     "order": 0,

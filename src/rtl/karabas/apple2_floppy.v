@@ -10,9 +10,10 @@
  dirty) plus the 140K sector images (.dsk / .do / .po, 143360 bytes): their tracks are made into
  nibbles here, as dsk2nib.c of NanoApple2 makes a .NIB, while the sectors come in.
 
- Sector images (dsk = 1), read only (the top write protects them): per physical sector p of the
- track the 256 bytes of its logical sector go into a page buffer (one SD read of 512 bytes,
- the half of the sector), then the sector is written into the track buffer as dsk2nib.c has it:
+ Sector images (dsk = 1): per physical sector p of the track the 256 bytes of its logical sector
+ go into a page buffer (one SD read of 512 bytes, the half of the sector) and into the sector
+ buffer of the track (4K, logical order), then the sector is written into the track buffer as
+ dsk2nib.c has it:
    38 x FF, D5 AA 96, volume (254) / track / sector / sum as 4-and-4, DE AA EB, 8 x FF,
    D5 AA AD, 342 + 1 nibbles of 6-and-2, DE AA EB    (409 bytes; FF to 6656 after sector 15)
  The 86 nibbles of the low bits: encode62 of dsk2nib takes the bytes 255 .. 0 into the nibbles
@@ -20,6 +21,14 @@
    aux[j] = { sw(p[(257 - j) & 255]), sw(p[171 - j]), sw(p[85 - j]) }   (sw: the 2 bits swapped)
  Sector order: DOS 3.3 (.dsk / .do) or ProDOS (.po), found at the mount from block 2 of the
  image (the volume directory of ProDOS: 00 00 03 00, storage type F in byte 4).
+
+ Writing a sector image: when the Apple has written into the track buffer, the track is saved
+ as a .NIB track is (the head leaves the track, or the motor stops): the nibbles are read round
+ the buffer once (6656 + 600 bytes: a sector across the end is found too), each sector found
+ (D5 AA 96, its number, D5 AA AD within 40 bytes, 86 + 256 nibbles) is decoded into the sector
+ buffer at its logical place (a sector not found keeps the bytes it was loaded with), then the
+ 8 SD sectors of the track are written. The low bits of byte i come from aux[85 - i] (bits 1:0),
+ aux[171 - i] (3:2) or aux[257 - i] (5:4), the inverse of the encoding above.
 
  Ports as floppy_track.sv; dsk is the kind of the image (from its size, apple2_top).
 */
@@ -36,7 +45,7 @@ module apple2_floppy (
 
 	input wire [8:0] sd_buff_addr,
 	input wire [7:0] sd_buff_dout,
-	output wire [7:0] sd_buff_din,
+	output wire [7:0] sd_buff_din,  // the byte at sd_buff_addr, two clocks later (img_sdc OUT_LATENCY 2)
 	input wire sd_buff_wr,
 
 	input wire change,
@@ -97,6 +106,29 @@ function [7:0] gcr;
 	endcase
 endfunction
 
+// the 6 bits of a nibble (only the 64 nibbles of gcr come here in good sectors)
+function [5:0] igcr;
+	input [7:0] n;
+	case (n)
+		8'h96: igcr = 6'h00; 8'h97: igcr = 6'h01; 8'h9A: igcr = 6'h02; 8'h9B: igcr = 6'h03;
+		8'h9D: igcr = 6'h04; 8'h9E: igcr = 6'h05; 8'h9F: igcr = 6'h06; 8'hA6: igcr = 6'h07;
+		8'hA7: igcr = 6'h08; 8'hAB: igcr = 6'h09; 8'hAC: igcr = 6'h0A; 8'hAD: igcr = 6'h0B;
+		8'hAE: igcr = 6'h0C; 8'hAF: igcr = 6'h0D; 8'hB2: igcr = 6'h0E; 8'hB3: igcr = 6'h0F;
+		8'hB4: igcr = 6'h10; 8'hB5: igcr = 6'h11; 8'hB6: igcr = 6'h12; 8'hB7: igcr = 6'h13;
+		8'hB9: igcr = 6'h14; 8'hBA: igcr = 6'h15; 8'hBB: igcr = 6'h16; 8'hBC: igcr = 6'h17;
+		8'hBD: igcr = 6'h18; 8'hBE: igcr = 6'h19; 8'hBF: igcr = 6'h1A; 8'hCB: igcr = 6'h1B;
+		8'hCD: igcr = 6'h1C; 8'hCE: igcr = 6'h1D; 8'hCF: igcr = 6'h1E; 8'hD3: igcr = 6'h1F;
+		8'hD6: igcr = 6'h20; 8'hD7: igcr = 6'h21; 8'hD9: igcr = 6'h22; 8'hDA: igcr = 6'h23;
+		8'hDB: igcr = 6'h24; 8'hDC: igcr = 6'h25; 8'hDD: igcr = 6'h26; 8'hDE: igcr = 6'h27;
+		8'hDF: igcr = 6'h28; 8'hE5: igcr = 6'h29; 8'hE6: igcr = 6'h2A; 8'hE7: igcr = 6'h2B;
+		8'hE9: igcr = 6'h2C; 8'hEA: igcr = 6'h2D; 8'hEB: igcr = 6'h2E; 8'hEC: igcr = 6'h2F;
+		8'hED: igcr = 6'h30; 8'hEE: igcr = 6'h31; 8'hEF: igcr = 6'h32; 8'hF2: igcr = 6'h33;
+		8'hF3: igcr = 6'h34; 8'hF4: igcr = 6'h35; 8'hF5: igcr = 6'h36; 8'hF6: igcr = 6'h37;
+		8'hF7: igcr = 6'h38; 8'hF9: igcr = 6'h39; 8'hFA: igcr = 6'h3A; 8'hFB: igcr = 6'h3B;
+		8'hFC: igcr = 6'h3C; 8'hFD: igcr = 6'h3D; 8'hFE: igcr = 6'h3E; default: igcr = 6'h3F;
+	endcase
+endfunction
+
 // physical sector -> logical sector of the image: DOS 3.3 order, ProDOS order
 function [3:0] dos_sec;
 	input [3:0] p;
@@ -144,7 +176,8 @@ reg saving = 1'b0, dirty = 1'b0;
 reg po = 1'b0;                   // ProDOS order
 
 // the sector image: states
-localparam S_IDLE = 4'd0, S_PROBE = 4'd1, S_SEC = 4'd2, S_EMIT = 4'd3, S_PAD = 4'd4, S_NIB = 4'd5;
+localparam S_IDLE = 4'd0, S_PROBE = 4'd1, S_SEC = 4'd2, S_EMIT = 4'd3, S_PAD = 4'd4, S_NIB = 4'd5,
+	S_SCAN = 4'd6, S_WSD = 4'd7;
 reg [3:0] st = S_IDLE;
 reg [3:0] psec = 4'd0;           // physical sector
 reg [3:0] lsec = 4'd0;           // its logical sector in the image
@@ -153,6 +186,37 @@ reg [9:0] ep = 10'd0;            // the byte of the sector being written (0..408
 reg [5:0] last = 6'd0;           // the 6-and-2 chain
 reg [7:0] eb;                    // the byte at ep
 reg [4:0] probe_ok = 5'd0;
+
+// saving a sector image: the scan of the nibbles
+reg [12:0] sc_addr = 13'd0;      // the read address of the scan (port A)
+reg [13:0] sc_cnt = 14'd0;       // bytes asked for
+reg sc_on = 1'b0, sc_v = 1'b0;   // scanning, the byte of the last clock is in trk_qa
+localparam F_SYNC = 3'd0, F_ADDR = 3'd1, F_DS = 3'd2, F_AUX = 3'd3, F_DAT = 3'd4, F_SUM = 3'd5;
+reg [2:0] fs = F_SYNC;
+reg [7:0] f1 = 8'd0, f2 = 8'd0;  // the two nibbles before
+reg [7:0] fcnt = 8'd0;
+reg [7:0] fsec_hi = 8'd0;
+reg [3:0] fsec = 4'd0;           // the physical sector of the address field
+reg [5:0] flast = 6'd0;
+reg [5:0] aux [0:85];
+wire [7:0] trk_qa;
+wire [5:0] fv = igcr(trk_qa) ^ flast;
+// the low bits of byte fcnt (F_DAT)
+wire [7:0] lo_j8 = (fcnt < 8'd86) ? 8'd85 - fcnt : (fcnt < 8'd172) ? 8'd171 - fcnt : 8'd1 - fcnt;  // 0..85
+wire [6:0] lo_j = lo_j8[6:0];
+wire [5:0] lo_aux = aux[lo_j];
+wire [1:0] lo2 = (fcnt < 8'd86) ? sw2(lo_aux[1:0]) : (fcnt < 8'd172) ? sw2(lo_aux[3:2]) : sw2(lo_aux[5:4]);
+wire [3:0] flog = po ? po_sec(fsec) : dos_sec(fsec);
+
+// the sector buffer of the track (4K, the logical order of the image): written while a sector
+// image loads and while its nibbles are decoded, read by the SD writes
+reg sb_we = 1'b0;
+reg [11:0] sb_wa = 12'd0;
+reg [7:0] sb_d = 8'd0;
+wire [7:0] sb_q;
+wire [11:0] sb_addr = sb_we ? sb_wa : { rel_lba[2:0], sd_buff_addr };
+kg_spram #(.DW(8), .AW(12), .WRITE_FIRST(0)) secbuf (
+	.clk(clk2), .en(1'b1), .we(sb_we), .addr(sb_addr), .din(sb_d), .dout(sb_q));
 
 // one sector of the track buffer (dsk2nib.c): what byte ep is
 wire [7:0] vol = 8'd254;
@@ -197,11 +261,16 @@ always @(posedge clk2) begin
 
 	if (sd_ack) { sd_rd, sd_wr } <= 2'b00;
 
-	if (readyi && ram_weD2 && !dsk) dirty <= 1'b1;
+	if (readyi && ram_weD2) dirty <= 1'b1;
+	sb_we <= 1'b0;
 
 	// the page of a sector image: the half of the SD sector that holds the logical sector
-	if (sd_buff_wr && sd_ack && st == S_SEC && sd_buff_addr[8] == lsec[0])
+	if (sd_buff_wr && sd_ack && st == S_SEC && sd_buff_addr[8] == lsec[0]) begin
 		page[sd_buff_addr[7:0]] <= sd_buff_dout;
+		sb_we <= 1'b1;
+		sb_wa <= { lsec, sd_buff_addr[7:0] };
+		sb_d <= sd_buff_dout;
+	end
 	// the probe of the order: block 2 = SD sector 2
 	if (sd_buff_wr && sd_ack && st == S_PROBE) begin
 		if (sd_buff_addr == 9'd0) probe_ok[0] <= sd_buff_dout == 8'h00;
@@ -236,6 +305,7 @@ always @(posedge clk2) begin
 		sd_wr <= 1'b0;
 		saving <= 1'b0;
 		dirty <= 1'b0;
+		sc_on <= 1'b0;
 		st <= S_IDLE;
 	end
 	else case (st)
@@ -294,6 +364,89 @@ always @(posedge clk2) begin
 		end
 	end
 
+	S_SCAN: begin
+		// ask for the next byte of the round (the byte comes a clock later)
+		if (sc_cnt != 14'd7256) begin
+			sc_addr <= (sc_addr == 13'd6655) ? 13'd0 : sc_addr + 13'd1;
+			sc_cnt <= sc_cnt + 14'd1;
+			sc_v <= 1'b1;
+		end
+		else begin
+			sc_v <= 1'b0;
+			sc_on <= 1'b0;
+			// the decoded track out: the 8 SD sectors
+			rel_lba <= 4'd0;
+			lba <= { 23'd0, cur_track, 3'd0 };
+			sd_wr <= 1'b1;
+			st <= S_WSD;
+		end
+		if (sc_v) begin
+			f1 <= trk_qa;
+			f2 <= f1;
+			case (fs)
+			F_SYNC:
+				if (f2 == 8'hD5 && f1 == 8'hAA && trk_qa == 8'h96) begin
+					fs <= F_ADDR;
+					fcnt <= 8'd0;
+				end
+			F_ADDR: begin
+				// volume, track, sector, sum in 4-and-4: the sector is bytes 4 and 5
+				fcnt <= fcnt + 8'd1;
+				if (fcnt == 8'd4) fsec_hi <= trk_qa;
+				if (fcnt == 8'd5) fsec <= ((fsec_hi << 1) | 8'd1) & trk_qa;
+				if (fcnt == 8'd7) begin
+					fs <= F_DS;
+					fcnt <= 8'd0;
+				end
+			end
+			F_DS: begin
+				fcnt <= fcnt + 8'd1;
+				if (f2 == 8'hD5 && f1 == 8'hAA && trk_qa == 8'hAD) begin
+					fs <= F_AUX;
+					fcnt <= 8'd0;
+					flast <= 6'd0;
+				end
+				else if (fcnt == 8'd40)
+					fs <= F_SYNC;
+			end
+			F_AUX: begin
+				aux[7'd85 - fcnt[6:0]] <= fv;
+				flast <= fv;
+				fcnt <= fcnt + 8'd1;
+				if (fcnt == 8'd85) begin
+					fs <= F_DAT;
+					fcnt <= 8'd0;
+				end
+			end
+			F_DAT: begin
+				sb_we <= 1'b1;
+				sb_wa <= { flog, fcnt };
+				sb_d <= { fv, lo2 };
+				flast <= fv;
+				fcnt <= fcnt + 8'd1;
+				if (fcnt == 8'd255)
+					fs <= F_SYNC;
+			end
+			default:
+				fs <= F_SYNC;
+			endcase
+		end
+	end
+
+	S_WSD:
+		if (old_ack && !sd_ack) begin
+			if (rel_lba != 4'd7) begin
+				lba <= lba + 32'd1;
+				rel_lba <= rel_lba + 4'd1;
+				sd_wr <= 1'b1;
+			end
+			else begin
+				// saved: the IDLE state loads the track of the head if it moved
+				busyi <= 1'b0;
+				st <= S_IDLE;
+			end
+		end
+
 	S_NIB:
 		// as floppy_track.sv
 		if (old_ack && !sd_ack) begin
@@ -319,7 +472,18 @@ always @(posedge clk2) begin
 
 	default:  // S_IDLE
 		if (readyi && ((cur_track != trackD2) || (old_change && !change) || (dirty && !activeD2))) begin
-			if (dsk) begin
+			if (dsk && dirty && cur_track != 6'b111111) begin
+				// a sector image written: decode the track and write it back
+				dirty <= 1'b0;
+				busyi <= 1'b1;
+				sc_on <= 1'b1;
+				sc_v <= 1'b0;
+				sc_addr <= 13'd0;
+				sc_cnt <= 14'd0;
+				fs <= F_SYNC;
+				st <= S_SCAN;
+			end
+			else if (dsk) begin
 				// a sector image: the track from its physical sector 0
 				cur_track <= trackD2;
 				psec <= 4'd0;
@@ -356,12 +520,14 @@ end
 // the track buffer: port A on clk2 (the SD bytes of a .NIB at {rel_lba, addr}, or the nibbles of a
 // sector image), port B the Apple
 wire nib_we = sd_buff_wr & sd_ack & (st == S_NIB);
-wire [12:0] a_addr = pa_we ? pa_addr : { rel_lba, sd_buff_addr };
+wire [12:0] a_addr = pa_we ? pa_addr : sc_on ? sc_addr : { rel_lba, sd_buff_addr };
+// the SD writes: the track of a .NIB, the sector buffer of a sector image
+assign sd_buff_din = dsk ? sb_q : trk_qa;
 
 Gowin_DPB_trkbuf trkbuf (
 	.clka(clk2),
 	.dina(nib_we ? sd_buff_dout : pa_din),
-	.douta(sd_buff_din),
+	.douta(trk_qa),
 	.ada(a_addr),
 	.wrea(nib_we | pa_we),
 	.ocea(1'b1),
@@ -371,7 +537,7 @@ Gowin_DPB_trkbuf trkbuf (
 	.dinb(ram_di),
 	.doutb(ram_do),
 	.adb(ram_addr),
-	.wreb(ram_we & !dsk),
+	.wreb(ram_we),
 	.oceb(1'b1),
 	.ceb(1'b1),
 	.resetb(1'b0)
