@@ -19,8 +19,9 @@
  Joysticks (JOY_L | JOY_R, kg_mcu: [1] up, [2] down, [3] left, [4] right, [6] A, [7] B): the
  paddles 0 / 1 at -127 / 0 / +127 (apple2_top: signed, 0 = centre), the buttons 0 / 1 = A / B.
 
- Mouse: each report (ms_upd toggles) gives its deltas and the left button to the AppleMouse
- card; mouse_tog changes with them (the top makes the strobe of the card on clk_core from it).
+ Mouse: each report (ms_upd toggles) gives its deltas (x 2, y negated) and the left button to
+ the AppleMouse card, which adds them to the steps still to go; mouse_tog changes with them (the
+ top makes the strobe of the card on clk_core from it).
 */
 
 module apple2_hid #(
@@ -145,8 +146,10 @@ reg ms_upd_d = 1'b0;
 always @(posedge clk) begin
 	ms_upd_d <= ms_upd;
 	if (ms_upd != ms_upd_d) begin
-		mouse_x <= { ms_x[7], ms_x };
-		mouse_y <= { ms_y[7], ms_y };
+		// x 2: the card counts one step of the Apple per two encoder steps; y: up is + for the card
+		// (the PS/2 sign), down for USB
+		mouse_x <= { ms_x, 1'b0 };
+		mouse_y <= ms_y == 8'h80 ? 9'h0FE : 9'd0 - { ms_y, 1'b0 };
 		mouse_btn <= ms_b[0];
 		mouse_tog <= ~mouse_tog;
 	end

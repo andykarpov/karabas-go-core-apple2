@@ -18,8 +18,14 @@
 
  Soft switches (the index of the item in the osd of core.json, file items included):
    0 Disk 1 (F 0)   1 Disk 2 (F 1)   2 Hard disk (F 2)   3 CPU (65C02 / 6502)
-   4 Monitor (Color / B&W / Green / Amber)   5 Palette   6 Mockingboard   7 Mouse   8 Reset
+   4 Monitor (Color / B&W / Green / Amber)   5 Palette   6 Mockingboard   7 Mouse
+   8 Reset   9 Serial (Off / USB UART / ESP Wi-Fi)   10 ESP bit 7 (Clear / Keep)
+ (the menu shows Serial before Reset: core.json pins "index" on both)
  Reset (F12) is a power on reset of the //e (the boot from the disk); Ctrl + Pause is Ctrl+Reset.
+
+ Serial: the Super Serial Card (slot 2) on the uart of the firmware (kg_mcu CMD_UART, apple2_ser:
+ the USB CDC port, the speed of the Apple goes to the firmware) or on the ESP module of the board
+ (UART_RX / UART_TX / UART_CTS, 115200; Mini G: ESP32-S3 without the reset / boot lines).
 */
 
 module karabas_minig_top (
@@ -128,8 +134,6 @@ assign WD = 16'bz;
 assign ESP32_SPI_CS_N = 1'b1;
 assign MIDI_TX = 1'b1;
 assign UART_RX = 1'bz;
-assign UART_TX = 1'bz;
-assign UART_CTS = 1'bz;
 assign TAPE_OUT = 1'b0;
 
 // Mini G2: T3 (FLASH_CS_N) is the ~CS of the SDRAM; 0 on both revisions (CLAUDE.md)
@@ -203,8 +207,8 @@ assign MCU_IO[0] = 1'bz;
 assign MCU_IO[5:2] = 4'bzzzz;
 
 wire [7:0] kb_status, kb_dat0, kb_dat1, kb_dat2, kb_dat3, kb_dat4, kb_dat5;
-wire [7:0] uart_rx_data, uart_rx_idx, uart_tx_data;
-wire uart_tx_wr;
+wire [7:0] uart_rx_data, uart_rx_idx, uart_tx_data, uart_dll, uart_dlm;
+wire uart_tx_wr, uart_dll_wr, uart_dlm_wr;
 wire [12:0] joy_l, joy_r;
 wire [7:0] ms_x, ms_y;
 wire [3:0] ms_z;
@@ -232,7 +236,7 @@ kg_mcu #(
 	.BURST_MAX_MHZ(32),  // Rev.G has MCU_SCK on a global clock pin
 	.CS_FILTER(3),
 	.ENABLE_RTC(0),
-	.ENABLE_UART(0),
+	.ENABLE_UART(1),     // the SSC on the firmware uart
 	.ENABLE_MATRIX(0),
 	.ENABLE_DEBUG(0),
 	.ENABLE_IMG(1),      // the disks: slots 0, 1 (Disk II), 2 (HDD)
@@ -312,11 +316,11 @@ kg_mcu #(
 	.UART_RX_IDX(uart_rx_idx),
 	.UART_TX_DATA(uart_tx_data),
 	.UART_TX_WR(uart_tx_wr),
-	.UART_TX_MODE(1'b0),
-	.UART_DLM(8'h00),
-	.UART_DLL(8'h00),
-	.UART_DLM_WR(1'b0),
-	.UART_DLL_WR(1'b0),
+	.UART_TX_MODE(1'b1),   // at the dll / dlm speed
+	.UART_DLM(uart_dlm),
+	.UART_DLL(uart_dll),
+	.UART_DLM_WR(uart_dlm_wr),
+	.UART_DLL_WR(uart_dll_wr),
 	.MATRIX_CMD(24'h000000),
 	.MATRIX_CMD_WR(1'b0),
 	.DEBUG_ADDR(16'h0000),
@@ -348,8 +352,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [9*8-1:0] sw;
-kg_soft_switches #(.N(9)) soft_switches (
+wire [11*8-1:0] sw;
+kg_soft_switches #(.N(11)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -361,6 +365,8 @@ wire [1:0] sw_palette = sw[5*8 +: 2];
 wire sw_no_mb = sw[6*8];
 wire sw_no_mouse = sw[7*8];
 wire sw_reset = sw[8*8];
+wire [1:0] sw_serial = sw[9*8 +: 2];   // 0 off, 1 the firmware uart, 2 the ESP module
+wire sw_esp_bit7 = sw[10*8];            // 0 the ESP gets bit 7 cleared, 1 kept
 
 // ------------------------------------------------------------------ HID
 
@@ -468,6 +474,15 @@ wire speaker;
 wire [9:0] psg_l, psg_r;
 wire [1:0] disk_active;
 
+// ------------------------------------------------------------------ serial (SSC)
+
+wire ssc_on = sw_serial != 2'd0;
+wire ssc_esp = sw_serial == 2'd2;
+wire ssc_bytes = !ssc_esp;
+wire ssc_tx, ssc_rts_n, ser_out_strobe, ser_in_strobe;
+wire [7:0] ser_out_avail, ser_out_data, ser_in_data;
+wire [31:0] ser_status;
+
 apple2_top machine (
 	.clk_core(clk_core),
 	.clk_sys(clk_sys),
@@ -479,8 +494,10 @@ apple2_top machine (
 	.mono(sw_monitor != 2'b00),
 	.mb_en(~sw_no_mb),
 	.mouse_en(~sw_no_mouse),
-	.ssc_en(1'b0),           // no serial port yet
-	.ssc_irq_en(1'b0),
+	.ssc_en(sw_serial != 2'd0),
+	.ssc_irq_en(sw_serial == 2'd2),   // the byte 6551 has no interrupt
+	.ssc_bytes(ssc_bytes),
+	.ssc_tx_7bit(!sw_esp_bit7),
 	.hdd_en(1'b1),
 	.floppy_wp(img_wp[1:0]),
 	.hdd_wp(img_wp[2]),
@@ -517,9 +534,39 @@ apple2_top machine (
 	.sd_rd_data(sdc_byte_in_data),
 	.sd_rd_byte_strobe(sdc_byte_in_strobe),
 	.sd_wr_data(sd_wr_data),
-	.uart_rx(1'b1),
-	.uart_tx(),
+	.uart_rx(ssc_esp ? UART_RX : 1'b1),
+	.uart_tx(ssc_tx),
+	.uart_rts_n(ssc_rts_n),
+	.ser_out_avail(ser_out_avail),
+	.ser_out_data(ser_out_data),
+	.ser_out_strobe(ser_out_strobe),
+	.ser_status(ser_status),
+	.ser_in_strobe(ser_in_strobe),
+	.ser_in_data(ser_in_data),
 	.disk_active(disk_active)
+);
+
+// the ESP module: driven only in its mode (UART_CTS low = the module may send)
+assign UART_TX = ssc_esp ? ssc_tx : 1'bz;
+assign UART_CTS = ssc_esp ? ssc_rts_n : 1'bz;
+
+apple2_ser ser (
+	.clk(clk_sys),
+	.en(ssc_bytes && ssc_on),
+	.out_avail(ser_out_avail),
+	.out_data(ser_out_data),
+	.out_strobe(ser_out_strobe),
+	.status(ser_status),
+	.in_strobe(ser_in_strobe),
+	.in_data(ser_in_data),
+	.uart_rx_data(uart_rx_data),
+	.uart_rx_idx(uart_rx_idx),
+	.uart_tx_data(uart_tx_data),
+	.uart_tx_wr(uart_tx_wr),
+	.uart_dll(uart_dll),
+	.uart_dll_wr(uart_dll_wr),
+	.uart_dlm(uart_dlm),
+	.uart_dlm_wr(uart_dlm_wr)
 );
 
 wire [15:0] md_out;

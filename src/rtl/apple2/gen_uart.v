@@ -40,7 +40,9 @@ module gen_uart_mos_6551(
 	output       dtr_n,
 	output       rts_n,
 	input        rx,
-	output       tx
+	output       tx,
+	input        tx_7bit,   // karabas: 1 = bit 7 of each sent byte is 0
+	output       rts_rx_n   // karabas: RTS, also off while a received byte is unread
 );
 
 reg        sreset;
@@ -81,6 +83,9 @@ wire [7:0] status = {~irq_n, dsrb_latch, dcdb_latch, ~tdr_full, rx_full, rx_ovr,
 
 assign     dtr_n = ~dtr;
 assign     rts_n = tx_ctrl == 0;
+// karabas: the ESP module (hardware flow control on) waits while the byte is unread: the firmware of
+// the SSC polls, and at 115200 it lost bytes of the replies
+assign     rts_rx_n = rts_n | rx_full;
 
 always @(posedge clk) begin
 	if (reset | sreset) begin
@@ -147,7 +152,10 @@ always @(posedge clk) begin
 	end
 end
 
-assign irq_n = ~(ext_irq | (tx_irq && tx_ctrl == 1) | (rx_irq & !rx_nie));
+// karabas: no interrupt while DTR is off (command bit 0 = 0, the state after a reset), as the
+// 6551: the receiver and the interrupts are disabled then. The ESP module sends at power up, and an
+// IRQ during the boot of the //e hung it before the disk.
+assign irq_n = ~(dtr & (ext_irq | (tx_irq && tx_ctrl == 1) | (rx_irq & !rx_nie)));
 
 always @(*) begin
 	dout = 8'hff;
@@ -194,7 +202,7 @@ gen_uart_tx gen_uart_tx(
 	.wordlen(wordlen),
 	.parity_en(parity[0]),
 	.parity_ctrl(parity[2:1]),
-	.tx_data(tdr),
+	.tx_data(tx_7bit ? {1'b0, tdr[6:0]} : tdr),   // karabas
 	.start(tx_start),
 	.busy(tx_busy),
 	.tx(tx_out)
