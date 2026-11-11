@@ -139,6 +139,7 @@ module tb_apple2 (
 		.sd_rd_byte_strobe(sd_rd_byte_strobe),
 		.sd_wr_data(sd_wr_data),
 		.ssc_bytes(1'b1),
+		.ssc_tx_7bit(1'b0),
 		.uart_rx(1'b1),
 		.uart_tx(),
 		.uart_rts_n(),

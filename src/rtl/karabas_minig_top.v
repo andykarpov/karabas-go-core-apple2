@@ -19,7 +19,7 @@
  Soft switches (the index of the item in the osd of core.json, file items included):
    0 Disk 1 (F 0)   1 Disk 2 (F 1)   2 Hard disk (F 2)   3 CPU (65C02 / 6502)
    4 Monitor (Color / B&W / Green / Amber)   5 Palette   6 Mockingboard   7 Mouse
-   8 Reset   9 Serial (Off / USB UART / ESP Wi-Fi)
+   8 Reset   9 Serial (Off / USB UART / ESP Wi-Fi)   10 ESP bit 7 (Clear / Keep)
  (the menu shows Serial before Reset: core.json pins "index" on both)
  Reset (F12) is a power on reset of the //e (the boot from the disk); Ctrl + Pause is Ctrl+Reset.
 
@@ -352,8 +352,8 @@ assign SD_CLK = mcu_sck_ibufg;
 
 // ------------------------------------------------------------------ soft switches
 
-wire [10*8-1:0] sw;
-kg_soft_switches #(.N(10)) soft_switches (
+wire [11*8-1:0] sw;
+kg_soft_switches #(.N(11)) soft_switches (
 	.clk(clk_sys),
 	.command(softsw_command),
 	.regs(sw),
@@ -366,6 +366,7 @@ wire sw_no_mb = sw[6*8];
 wire sw_no_mouse = sw[7*8];
 wire sw_reset = sw[8*8];
 wire [1:0] sw_serial = sw[9*8 +: 2];   // 0 off, 1 the firmware uart, 2 the ESP module
+wire sw_esp_bit7 = sw[10*8];            // 0 the ESP gets bit 7 cleared, 1 kept
 
 // ------------------------------------------------------------------ HID
 
@@ -496,6 +497,7 @@ apple2_top machine (
 	.ssc_en(sw_serial != 2'd0),
 	.ssc_irq_en(sw_serial == 2'd2),   // the byte 6551 has no interrupt
 	.ssc_bytes(ssc_bytes),
+	.ssc_tx_7bit(!sw_esp_bit7),
 	.hdd_en(1'b1),
 	.floppy_wp(img_wp[1:0]),
 	.hdd_wp(img_wp[2]),

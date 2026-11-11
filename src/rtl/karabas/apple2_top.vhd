@@ -86,6 +86,8 @@ entity apple2_top is
     -- SSC: ssc_bytes 0 = the 6551 on uart_rx / uart_tx (ESP module, 115200 by the DIP switches),
     -- 1 = the byte 6551 of the upstream (glb6551) on the ser_* ports, clk_sys (the mcu uart)
     ssc_bytes      : in  std_logic;
+    -- 1: the 6551 sends bit 7 as 0 (keys and text of the //e have it set, the AT commands not)
+    ssc_tx_7bit    : in  std_logic;
     uart_rx        : in  std_logic;
     uart_tx        : out std_logic;
     uart_rts_n     : out std_logic;
@@ -576,7 +578,10 @@ begin
   -- karabas: 115200 for the ESP module (baud code 0: 16 x the 1.8432 MHz clock), else 9600
   ssc_sw1 <= "000000" when ssc_bytes = '0' else
              "000111";   -- 9600 baud, the default of the upstream OSD (value 14, bits reversed)
-  ssc_sw2 <= "00010";    -- 8 data bits, no parity, 1 stop bit, no LF after CR
+  -- karabas: SW2(2) = 0 is 8 data bits (the upstream system_databits: 1 = 7 bits); the ESP module
+  -- gets an LF after each CR (SW2(5)): its AT commands end with CR LF
+  ssc_sw2 <= "10000" when ssc_bytes = '0' else
+             "00000";    -- 8 data bits, no parity, 1 stop bit, no LF after CR
   nullmdm1 <= '0';
   nullmdm2 <= '0';
 
@@ -602,6 +607,7 @@ begin
     UART_RTS       => uart_rts_n,
     UART_DCD       => nullmdm2,
     UART_DSR       => nullmdm2,
+    UART_TX_7BIT   => ssc_tx_7bit,
     UART_DTR       => open,
     clk_sys        => clk_sys,
     wifimodem      => ssc_bytes,

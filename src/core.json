@@ -1,7 +1,7 @@
 {
     "id": "apple2",
     "name": "Apple //e",
-    "build": "26111108",
+    "build": "26111111",
     "visible": true,
     "type": "osd",
     "order": 0,
@@ -22,6 +22,7 @@
     {"type": "S", "name": "Mockingbrd", "options": ["On", "Off"], "default": 0},
     {"type": "S", "name": "Mouse", "options": ["On", "Off"], "default": 0},
     {"type": "S", "name": "Serial", "options": ["Off", "USB UART", "ESP Wi-Fi"], "default": 0, "index": 9},
+    {"type": "S", "name": "ESP bit 7", "options": ["Clear", "Keep"], "default": 0, "index": 10, "show_if": {"item": "Serial", "value": "ESP Wi-Fi"}},
     {"type": "T", "name": "Reset", "hotkey": "F12", "index": 8}
     ]
 }

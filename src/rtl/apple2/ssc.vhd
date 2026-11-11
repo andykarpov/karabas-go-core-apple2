@@ -37,6 +37,7 @@ entity ssc is
     UART_DCD       : in  std_logic;
     UART_DSR       : in  std_logic;
     UART_DTR       : out std_logic;
+    UART_TX_7BIT   : in  std_logic;   -- karabas: bit 7 of the sent bytes cleared (the ESP module)
 
     clk_sys                   : in  std_logic;
     wifimodem                 : in  std_logic;
@@ -135,9 +136,11 @@ uart : entity work.gen_uart_mos_6551 port map (
     dcd_n  => UART_DCD,
     dsr_n  => UART_DSR,
     dtr_n  => UART_DTR,
-    rts_n  => UART_RTS,
+    rts_n  => open,
+    rts_rx_n => UART_RTS,   -- karabas
     rx     => UART_RX,
-    tx     => UART_TX
+    tx     => UART_TX,
+    tx_7bit => UART_TX_7BIT
   );
 
 uart_wifi : entity work.glb6551 port map (
