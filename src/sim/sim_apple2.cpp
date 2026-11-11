@@ -1,10 +1,12 @@
 // sim_apple2.cpp: the verilator harness of tb_apple2 (the machine + RAM).
 //
-//   clk_sys 28.636 MHz, clk_core 14.318 MHz (every second edge of clk_sys)
-//   SD card: the sector interface of img_sdc / sd_card, images 0 / 1 (floppies, .nib) and 2 (.hdv)
+//   clk_sys 28.571 MHz, clk_core 14.286 MHz, clk_pix 25 MHz, as the PLL of the boards (VCO 1000 MHz:
+//   /35, /70, /40), stepped by their edges on a grid of 0.5 ns
+//   SD card: as img_sdc serves it (busy when a request is taken, its slot, the bytes, then not
+//   busy), images 0 / 1 (floppies, .nib) and 2 (.hdv)
 //   keyboard: usb_key = {released, code[6:0]} with a level change of kbd_strobe per event, the codes
 //             of the MiSTeryNano HID (USB usage, modifiers 0x68 + n)
-//   frames: the colour picture of vga_controller (vga_r / g / b, 14 MHz pixels) as PPM
+//   frames: the 640 x 480 picture of apple2_fb (rgb / de / vs on clk_pix) as PPM
 //
 // options:
 //   --ms N            run N ms of machine time (default 1000)
@@ -20,10 +22,11 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 static Vtb_apple2 *top;
 static uint64_t sys_cycles = 0;            // clk_sys rising edges
-static const double SYS_HZ = 28636363.0;
+static const double SYS_HZ = 1e9 / 35.0;
 static uint64_t ms_to_cycles(double ms) { return (uint64_t)(ms * SYS_HZ / 1000.0); }
 
 // ---------------------------------------------------------------- SD card
@@ -56,6 +59,7 @@ static void sd_step() {
 					(void)n;
 				}
 				top->sd_busy = 1;
+				top->sd_slot = i;
 				sd_state = rd ? SD_READ : SD_WRITE;
 				sd_pos = 0;
 				sd_wait = 4;
@@ -154,51 +158,57 @@ static void key_step() {
 }
 
 // ---------------------------------------------------------------- frames
-static const int FW = 910, FH = 262;
+static const int FW = 640, FH = 480;
 static std::vector<uint8_t> frame(FW * FH * 3), last(FW * FH * 3);
 static int fx = 0, fy = 0, frames = 0;
-static bool old_hbl = false, old_vbl = false;
-
+static bool old_de = false, old_vs = false;
 static int trace_we = 0;
-static uint64_t st_we = 0, st_video = 0, st_vga = 0;
-static void pixel_step() {
+static uint64_t st_we = 0, st_video = 0, st_lit = 0;
+
+static void core_step() {
+	// on each clk_core rising edge
 	if (top->ram_we) {
 		st_we++;
 		if (trace_we > 0 && !top->reset_cold) { trace_we--; printf("[%8.3f ms] we %c %04x = %02x\n", sys_cycles * 1000.0 / SYS_HZ, top->ram_aux ? 'A' : 'M', top->ram_addr, top->ram_din); }
 	}
 	if (top->video) st_video++;
-	if (top->vga_r | top->vga_g | top->vga_b) st_vga++;
-	// on each clk_core rising edge
-	bool hb = top->vga_hblank, vb = top->vga_vblank;
-	if (!hb && !vb && fx < FW && fy < FH) {
-		uint8_t *p = &frame[(fy * FW + fx) * 3];
-		p[0] = top->vga_r; p[1] = top->vga_g; p[2] = top->vga_b;
+	{ static int ospk = 0; if (top->speaker != ospk) { static int n = 0; if (getenv("FB_DEBUG") && n++ < 3 || n % 500 == 0) printf("[%8.3f ms] speaker %d (%d)\n", sys_cycles * 1000.0 / SYS_HZ, top->speaker, n); ospk = top->speaker; } }
+	// FB_DEBUG: where the points of a line are, counted from the falling edge of HBL
+	static int vx = 0, vmin = 9999, vmax = -1; static bool ohbl = true;
+	if (!top->hbl && ohbl) vx = 0; else vx++;
+	if (top->video && !top->hbl && !top->vbl) { if (vx < vmin) vmin = vx; if (vx > vmax) vmax = vx; }
+	if (top->video && top->hbl && !top->vbl) { static int n = 0; if (n++ < 5 && getenv("FB_DEBUG")) printf("video in hbl at %d\n", vx); }
+	if (top->vbl && getenv("FB_DEBUG") && vmax >= 0) { printf("points %d..%d\n", vmin, vmax); vmin = 9999; vmax = -1; }
+	ohbl = top->hbl;
+}
+
+static void pixel_step() {
+	// on each clk_pix rising edge
+	bool de = top->de, vs = top->vs;
+	if (de) {
+		if (fx < FW && fy < FH) {
+			uint8_t *p = &frame[(fy * FW + fx) * 3];
+			p[0] = top->rgb >> 16; p[1] = top->rgb >> 8; p[2] = top->rgb;
+			if (top->rgb) st_lit++;
+		}
+		fx++;
 	}
-	if (!hb) fx++;
-	if (hb && !old_hbl) { if (fx > 0 && !vb) fy++; fx = 0; }
-	if (vb && !old_vbl) {
+	if (!de && old_de) { fy++; fx = 0; }
+	if (vs && !old_vs) {
+		if (getenv("FB_DEBUG")) { int n = 0; for (auto v : frame) n += v != 0; printf("frame %d: lines %d, lit %d\n", frames, fy, n); }
 		last = frame;
 		std::fill(frame.begin(), frame.end(), 0);
-		fy = 0;
+		fx = fy = 0;
 		frames++;
 	}
-	old_hbl = hb; old_vbl = vb;
+	old_de = de; old_vs = vs;
 }
 
 static void write_ppm(const std::string &name) {
-	// the used area only
-	int w = 0, h = 0;
-	for (int y = 0; y < FH; y++)
-		for (int x = 0; x < FW; x++) {
-			const uint8_t *p = &last[(y * FW + x) * 3];
-			if (p[0] | p[1] | p[2]) { if (x + 1 > w) w = x + 1; if (y + 1 > h) h = y + 1; }
-		}
-	if (w < 560) w = 560;
-	if (h < 192) h = 192;
 	FILE *f = fopen(name.c_str(), "wb");
 	if (!f) return;
-	fprintf(f, "P6\n%d %d\n255\n", w, h);
-	for (int y = 0; y < h; y++) fwrite(&last[y * FW * 3], 3, w, f);
+	fprintf(f, "P6\n%d %d\n255\n", FW, FH);
+	fwrite(last.data(), 3, FW * FH, f);
 	fclose(f);
 }
 
@@ -206,6 +216,7 @@ static void write_ppm(const std::string &name) {
 int main(int argc, char **argv) {
 	Verilated::commandArgs(argc, argv);
 	double run_ms = 1000, every_ms = 0;
+	bool mono = false;
 	std::string ppm;
 	const char *disk[3] = {nullptr, nullptr, nullptr};
 	for (int i = 1; i < argc; i++) {
@@ -218,6 +229,7 @@ int main(int argc, char **argv) {
 		else if (a == "--every" && i + 1 < argc) every_ms = atof(argv[++i]);
 		else if (a == "--type-at" && i + 2 < argc) { double t = atof(argv[++i]); type_text(t, argv[++i]); }
 		else if (a == "--trace-sd") trace_sd = true;
+		else if (a == "--mono") mono = true;
 		else if (a == "--trace-we" && i + 1 < argc) trace_we = atoi(argv[++i]);
 	}
 	top = new Vtb_apple2;
@@ -231,24 +243,31 @@ int main(int argc, char **argv) {
 
 	top->reset_cold = 1;
 	top->reset_warm = 0;
+	top->screen_mode = mono ? 2 : 0;
 	top->clk_sys = 0;
 	top->clk_core = 0;
+	top->clk_pix = 0;
 	top->eval();
 
 	const uint64_t end = ms_to_cycles(run_ms);
 	const uint64_t every = every_ms > 0 ? ms_to_cycles(every_ms) : 0;
 	const uint64_t mount_at = ms_to_cycles(20);
 	int mounted = 0;
-	bool core_phase = false;
+	// half periods in 0.5 ns: clk_sys 17.5 ns, clk_core 35 ns, clk_pix 20 ns
+	const uint64_t H_SYS = 35, H_CORE = 70, H_PIX = 40;
+	uint64_t t = 0, n_sys = H_SYS, n_core = H_CORE, n_pix = H_PIX;
 	while (sys_cycles < end && !Verilated::gotFinish()) {
-		// rising edge of clk_sys; clk_core (half the frequency) changes with it
-		top->clk_sys = 1;
-		core_phase = !core_phase;
-		top->clk_core = core_phase;
+		t = std::min(n_sys, std::min(n_core, n_pix));
+		bool sys_r = false, core_r = false, pix_r = false;
+		if (t == n_sys) { top->clk_sys = !top->clk_sys; sys_r = top->clk_sys; n_sys += H_SYS; }
+		if (t == n_core) { top->clk_core = !top->clk_core; core_r = top->clk_core; n_core += H_CORE; }
+		if (t == n_pix) { top->clk_pix = !top->clk_pix; pix_r = top->clk_pix; n_pix += H_PIX; }
 		top->eval();
-		if (core_phase) pixel_step();
-		sys_cycles++;
+		if (core_r) core_step();
+		if (pix_r) pixel_step();
+		if (!sys_r) continue;
 
+		sys_cycles++;
 		if (sys_cycles == ms_to_cycles(1)) top->reset_cold = 0;
 		// mount the images one after the other (img_mounted is one pulse per image)
 		top->img_mounted = 0;
@@ -262,17 +281,14 @@ int main(int argc, char **argv) {
 		sd_step();
 		key_step();
 
-		top->clk_sys = 0;
-		top->eval();
-
 		if (every && sys_cycles % every == 0 && !ppm.empty()) {
 			char n[64];
 			snprintf(n, sizeof n, "_%05d.ppm", (int)(sys_cycles * 1000.0 / SYS_HZ + 0.5));
 			write_ppm(ppm + n);
 		}
 	}
-	printf("%.1f ms, %d frames, disk active %d; ram writes %llu, video 1s %llu, vga lit %llu, addr %04x\n", sys_cycles * 1000.0 / SYS_HZ, frames, top->disk_active,
-		(unsigned long long)st_we, (unsigned long long)st_video, (unsigned long long)st_vga, top->ram_addr);
+	printf("%.1f ms, %d frames, disk active %d; ram writes %llu, video 1s %llu, lit %llu, addr %04x\n", sys_cycles * 1000.0 / SYS_HZ, frames, top->disk_active,
+		(unsigned long long)st_we, (unsigned long long)st_video, (unsigned long long)st_lit, top->ram_addr);
 	if (!ppm.empty()) write_ppm(ppm + ".ppm");
 	for (auto &i : img) if (i.f) fclose(i.f);
 	top->final();

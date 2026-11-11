@@ -6,11 +6,11 @@
 --   slot 2 SSC, slot 4 Mockingboard A, slot 5 AppleMouse, slot 6 Disk II (two drives, .NIB),
 --   slot 7 ProDOS HDD (.HDV)
 --
--- Outside: the 64K main + 64K aux RAM (ram_dout = aux & main at ram_addr, one write port),
--- the Apple video (VIDEO / COLOR_LINE / HBL / VBL at 14 MHz) and the line doubled RGB of
--- vga_controller, the speaker and the two PSG channels, the keyboard (MiSTeryNano usb_key),
--- the paddles / buttons, the mouse, the SD sector interface of three images (0 / 1 floppies
--- A / B, 2 HDD; byte interface as sd_card / img_sdc) and the SSC UART.
+-- Outside: the 64K main + 64K aux RAM (ram_dout = aux & main at ram_addr, one write port; the
+-- read must be registered on clk_core, see apple2_sram), the Apple video (VIDEO / COLOR_LINE /
+-- HBL / VBL at 14 MHz: apple2_fb colours it), the speaker and the two PSG channels, the keyboard
+-- (MiSTeryNano usb_key), the paddles / buttons, the mouse, the SD sector interface of three images
+-- (0 / 1 floppies, 2 HDD) as img_sdc has it, and the SSC UART.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -26,9 +26,8 @@ entity apple2_top is
     -- options
     cpu_type       : in  std_logic;                     -- 0 6502, 1 65C02
     romswitch      : in  std_logic;                     -- video ROM half
-    screen_mode    : in  std_logic_vector(1 downto 0);  -- 00 colour, 01 B&W, 10 green, 11 amber
-    palette        : in  std_logic_vector(1 downto 0);
-    lores_text     : in  std_logic;                     -- colour text in mixed lo-res
+    color_text     : in  std_logic;                     -- colour text in mixed lo-res (colour monitor)
+    mono           : in  std_logic;                     -- a monochrome monitor: no colour lines
     mb_en          : in  std_logic;
     mouse_en       : in  std_logic;
     ssc_en         : in  std_logic;
@@ -44,18 +43,11 @@ entity apple2_top is
     ram_din        : out std_logic_vector(7 downto 0);
     ram_dout       : in  std_logic_vector(15 downto 0); -- aux & main
 
-    -- video
+    -- video (14 MHz): color_line already with color_text / mono
     video          : out std_logic;
     color_line     : out std_logic;
     hbl            : out std_logic;
     vbl            : out std_logic;
-    vga_r          : out std_logic_vector(7 downto 0);
-    vga_g          : out std_logic_vector(7 downto 0);
-    vga_b          : out std_logic_vector(7 downto 0);
-    vga_hs         : out std_logic;
-    vga_vs         : out std_logic;
-    vga_hblank     : out std_logic;
-    vga_vblank     : out std_logic;
 
     -- sound
     speaker        : out std_logic;
@@ -85,6 +77,7 @@ entity apple2_top is
     sd_rd          : out std_logic_vector(2 downto 0);
     sd_wr          : out std_logic_vector(2 downto 0);
     sd_busy        : in  std_logic;
+    sd_slot        : in  std_logic_vector(2 downto 0);  -- the image being served (img_sdc)
     sd_byte_index  : in  std_logic_vector(8 downto 0);
     sd_rd_data     : in  std_logic_vector(7 downto 0);
     sd_rd_byte_strobe : in std_logic;
@@ -115,7 +108,6 @@ architecture rtl of apple2_top is
   signal joyx, joyy : std_logic;
   signal VIDEO_i, COLOR_LINE_i, HBL_i, VBL_i, TEXT_MODE : std_logic;
   signal COLOR_LINE_CONTROL, TEXT_COLOR : std_logic;
-  signal vga_r_u, vga_g_u, vga_b_u : unsigned(7 downto 0);
 
   signal reset, reset_w, power_on_reset, dd_reset, soft_reset_i : std_logic := '1';
   signal flash_clk : unsigned(22 downto 0) := (others => '0');
@@ -151,6 +143,7 @@ architecture rtl of apple2_top is
   signal cpu_wait_hdd, cpu_wait_hddD, cpu_wait_hddD2 : std_logic := '0';
   signal hdd_state : std_logic_vector(1 downto 0) := "00";
   signal hdd_ram_we : std_logic;
+  signal sd_ack : std_logic_vector(2 downto 0);     -- sd_busy of each image
 
   -- SSC
   signal ssc_sw1 : std_logic_vector(6 downto 1);
@@ -242,39 +235,13 @@ begin
   );
 
   video      <= VIDEO_i;
-  color_line <= COLOR_LINE_i;
   hbl        <= HBL_i;
   vbl        <= VBL_i;
 
-  TEXT_COLOR <= '1' when screen_mode = "00" and lores_text = '1' else '0';
-  COLOR_LINE_CONTROL <= (COLOR_LINE_i or (TEXT_COLOR and not TEXT_MODE)) and not (screen_mode(1) or screen_mode(0));
-
-  vga : entity work.vga_controller port map (
-    CLK_14M        => clk_core,
-    VIDEO          => VIDEO_i,
-    COLOR_LINE     => COLOR_LINE_CONTROL,
-    SCREEN_MODE    => screen_mode,
-    COLOR_PALETTE  => palette,
-    HBL            => HBL_i,
-    VBL            => VBL_i,
-    VGA_HS         => vga_hs,
-    VGA_VS         => vga_vs,
-    VGA_HBL        => vga_hblank,
-    VGA_VBL        => vga_vblank,
-    VGA_R          => vga_r_u,
-    VGA_G          => vga_g_u,
-    VGA_B          => vga_b_u,
-    ioctl_addr     => (others => '0'),
-    ioctl_data     => (others => '0'),
-    ioctl_index    => (others => '0'),
-    ioctl_download => '0',
-    ioctl_wr       => '0',
-    ioctl_wait     => open,
-    ioctl_clk      => clk_sys
-  );
-  vga_r <= std_logic_vector(vga_r_u);
-  vga_g <= std_logic_vector(vga_g_u);
-  vga_b <= std_logic_vector(vga_b_u);
+  -- as the NanoApple2 top: colour text lines in mixed modes on request, none on a monochrome monitor
+  TEXT_COLOR <= color_text;
+  COLOR_LINE_CONTROL <= (COLOR_LINE_i or (TEXT_COLOR and not TEXT_MODE)) and not mono;
+  color_line <= COLOR_LINE_CONTROL;
 
   keyboard : entity work.keyboard port map (
     usb_key        => usb_key,
@@ -339,13 +306,20 @@ begin
   sd_lba     <= SD_LBA3 when (sd_rd_i(2) or sd_wr_i(2)) = '1' else
                 SD_LBA2 when (sd_rd_i(1) or sd_wr_i(1)) = '1' else
                 SD_LBA1;
-  sd_wr_data <= std_logic_vector(SD_DATA_IN3) when (sd_rd_i(2) or sd_wr_i(2)) = '1' else
-                SD_DATA_IN2 when (sd_rd_i(1) or sd_wr_i(1)) = '1' else
+  -- karabas: the write data and the acks by the slot img_sdc serves (the requests drop when it
+  -- takes them; upstream picked the data by the request, so a write of drive 2 sent drive 1's track)
+  sd_wr_data <= std_logic_vector(SD_DATA_IN3) when sd_slot = "010" else
+                SD_DATA_IN2 when sd_slot = "001" else
                 SD_DATA_IN1;
+  sd_ack(0) <= sd_busy when sd_slot = "000" else '0';
+  sd_ack(1) <= sd_busy when sd_slot = "001" else '0';
+  sd_ack(2) <= sd_busy when sd_slot = "010" else '0';
   sd_rd <= sd_rd_i;
   sd_wr <= sd_wr_i;
 
-  -- mounting: a change of an image (or 2.2 s after start, as upstream) reloads the track
+  -- mounting: a change of an image (or 2.2 s after start, as upstream) reloads the track.
+  -- karabas: the mounts stay over a reset (upstream cleared them only without the PLL): the
+  -- firmware sends img_mounted once, at the mount; a cleared DISK_MOUNT took the disk away for good
   mount : process(clk_sys)
     variable reset_cnt : integer range 0 to 67108863 := 64000000;
   begin
@@ -353,8 +327,6 @@ begin
       disk_mount_d   <= DISK_MOUNT;
       disk_chg_trg_d <= disk_chg_trg;
       if reset_cold = '1' then
-        DISK_MOUNT  <= "00";
-        hdd_mounted <= '0';
         disk_chg_trg <= '0';
         reset_cnt := 64000000;
       else
@@ -413,7 +385,7 @@ begin
     sd_lba       => SD_LBA1,
     sd_rd        => sd_rd_i(0),
     sd_wr        => sd_wr_i(0),
-    sd_ack       => sd_busy
+    sd_ack       => sd_ack(0)
   );
 
   drive2 : entity work.floppy_track port map (
@@ -437,7 +409,7 @@ begin
     sd_lba       => SD_LBA2,
     sd_rd        => sd_rd_i(1),
     sd_wr        => sd_wr_i(1),
-    sd_ack       => sd_busy
+    sd_ack       => sd_ack(1)
   );
 
   disk : entity work.disk_ii port map (
@@ -500,7 +472,7 @@ begin
   -- slot 7: HDD, one SD request per block, the CPU waits
 
   rnw        <= not cpu_we;
-  hdd_ram_we <= sd_rd_byte_strobe and sd_busy;
+  hdd_ram_we <= sd_rd_byte_strobe and sd_ack(2);
 
   hdd : entity work.hdd port map (
     CLK_14M        => clk_core,
@@ -545,7 +517,7 @@ begin
       hdd_readD2  <= hdd_readD;
       hdd_writeD  <= hdd_write;
       hdd_writeD2 <= hdd_writeD;
-      old_ack     <= sd_busy;
+      old_ack     <= sd_ack(2);
       if hdd_readD = '0' and hdd_readD2 = '1' then
         hdd_read_pending <= '1';
       end if;
@@ -564,12 +536,12 @@ begin
             cpu_wait_hddD2 <= '1';
           end if;
         when "10" =>
-          if old_ack = '0' and sd_busy = '1' then
+          if old_ack = '0' and sd_ack(2) = '1' then
             hdd_read_pending  <= '0';
             hdd_write_pending <= '0';
             sd_rd_i(2)        <= '0';
             sd_wr_i(2)        <= '0';
-          elsif old_ack = '1' and sd_busy = '0' then
+          elsif old_ack = '1' and sd_ack(2) = '0' then
             hdd_state      <= "00";
             cpu_wait_hddD2 <= '0';
           end if;
