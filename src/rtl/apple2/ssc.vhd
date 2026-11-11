@@ -112,7 +112,7 @@ begin
     CLK    => CLK_14M,
     RST_N  => not RESET,
 
-    IN_CLK => 14000000,
+    IN_CLK => 14285714,   -- karabas: clk_core is 14.286 MHz (14000000 made the 6551 2 % fast)
     OUT_CLK=>  1843200,
 
     CE     => uart_clk_en

@@ -41,9 +41,7 @@ reg TDRE;
 reg RDRF;
 
 wire [1:0] WORD_SELECT;
-wire RESET_X;
 wire PAR_DIS;
-reg RESET_NX;
 
 // report the available unused space in the input fifo
 assign serial_data_in_free = { 4'h0, serial_data_in_space };
@@ -257,8 +255,6 @@ wire uart_tx_irq = !serial_data_out_fifo_full && !serial_strobe_out;
 
 // 6551 UART
 
-assign RESET_X = RESET_NX 					?	1'b0:
-											RESET_N;
 assign TXDATA_OUT =	1'b1;
 
 assign TDRE = !serial_data_out_fifo_full && !uart_tx_busy;
@@ -279,23 +275,22 @@ assign DTR = ~CMD_REG[0];
 assign PAR_DIS = ~CMD_REG[5];
 assign WORD_SELECT = CTL_REG[6:5];
 
-always @ (negedge CLK or negedge RESET_N)
+// karabas: the registers are written once per access, synchronously, at its end (PH_2 falls)
+// with RS / RW_N / DI of the clock before. The upstream wrote them (and did the programmed reset
+// of a status write, as an asynchronous reset through RESET_NX on the falling edge) on every
+// clock of PH_2: on the board a write of the data register cleared bits of CMD and CTL.
+reg ph2_d = 1'b0;
+reg [4:0] acc_q = 5'b11111;     // { RW_N, CS, RS } of the access
+reg [7:0] di_q = 8'h00;
+always @ (posedge CLK)
 begin
-	if(!RESET_N)
-		RESET_NX <= 1'b1;
-	else
+	ph2_d <= PH_2;
+	if (PH_2)
 	begin
-		if (PH_2)
-			if({RW_N, CS, RS} == 5'b00101) // Software RESET
-				RESET_NX <= 1'b1;
-			else
-				RESET_NX <= 1'b0;
-			end
-end
-
-always @ (posedge CLK or negedge RESET_X)
-begin
-	if(!RESET_X)
+		acc_q <= {RW_N, CS, RS};
+		di_q <= DI;
+	end
+	if (!RESET_N || (ph2_d && !PH_2 && acc_q == 5'b00101))   // reset, a status write
 	begin
 		CTL_REG <= 8'h00;
 		CMD_REG <= 8'h00;
@@ -303,16 +298,12 @@ begin
 		FRAME <= 1'b0;
 		PARITY <= 1'b0;
 	end
-	else
+	else if (ph2_d && !PH_2)
 	begin
-		if (PH_2)
-		begin
-			if({RW_N, CS, RS} == 5'b00110) // Write CMD register
-				CMD_REG <= DI;
-
-			if({RW_N, CS, RS} == 5'b00111) // Write CTL register
-				CTL_REG <= DI;
-		end
+		if (acc_q == 5'b00110) // Write CMD register
+			CMD_REG <= di_q;
+		if (acc_q == 5'b00111) // Write CTL register
+			CTL_REG <= di_q;
 	end
 end
 

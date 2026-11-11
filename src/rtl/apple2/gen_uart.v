@@ -147,7 +147,10 @@ always @(posedge clk) begin
 	end
 end
 
-assign irq_n = ~(ext_irq | (tx_irq && tx_ctrl == 1) | (rx_irq & !rx_nie));
+// karabas: no interrupt while DTR is off (command bit 0 = 0, the state after a reset), as the
+// 6551: the receiver and the interrupts are disabled then. The ESP module sends at power up, and an
+// IRQ during the boot of the //e hung it before the disk.
+assign irq_n = ~(dtr & (ext_irq | (tx_irq && tx_ctrl == 1) | (rx_irq & !rx_nie)));
 
 always @(*) begin
 	dout = 8'hff;
