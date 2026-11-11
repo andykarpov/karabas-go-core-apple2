@@ -147,12 +147,12 @@ uart_wifi : entity work.glb6551 port map (
   RX_CLK_IN   => uart_clk_en,
   XTAL_CLK_IN => uart_clk_en,
   PH_2        => wifi_cs(0),
-  DI          => D_IN,
+  DI          => std_logic_vector(D_IN),  -- karabas: unsigned to the vector port (VHDL types)
   DO          => uart_dout_wifi,
   IRQ         => open, -- IRQ_N,
   CS          => wifi_cs,
   RW_N        => RNW,
-  RS          => A(1 downto 0),
+  RS          => std_logic_vector(A(1 downto 0)),  -- karabas
   TXDATA_OUT  => open,
   RXDATA_IN   => '1',
   RTS         => nullmdm1,
