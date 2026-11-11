@@ -74,12 +74,13 @@ architecture rtl of hdd is
 --  signal sector_buf : sector_ram;
 
   -- ProDOS constants
-  constant PRODOS_COMMAND_STATUS   : unsigned := X"00";
-  constant PRODOS_COMMAND_READ     : unsigned := X"01";
-  constant PRODOS_COMMAND_WRITE    : unsigned := X"02";
-  constant PRODOS_COMMAND_FORMAT   : unsigned := X"03";
-  constant PRODOS_STATUS_NO_DEVICE : unsigned := X"28";
-  constant PRODOS_STATUS_PROTECT   : unsigned := X"2B";
+  -- karabas: the constants with a range (locally static choices, VHDL rules)
+  constant PRODOS_COMMAND_STATUS   : unsigned(7 downto 0) := X"00";
+  constant PRODOS_COMMAND_READ     : unsigned(7 downto 0) := X"01";
+  constant PRODOS_COMMAND_WRITE    : unsigned(7 downto 0) := X"02";
+  constant PRODOS_COMMAND_FORMAT   : unsigned(7 downto 0) := X"03";
+  constant PRODOS_STATUS_NO_DEVICE : unsigned(7 downto 0) := X"28";
+  constant PRODOS_STATUS_PROTECT   : unsigned(7 downto 0) := X"2B";
 
   signal ram_do_v : std_logic_vector(7 downto 0);  -- karabas
   signal sec_D_OUT_v : std_logic_vector(7 downto 0);  -- karabas

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An Apple //e (enhanced) core (65C02 / 6502, 64 KB + 64 KB aux, 80 columns, double hi-res, Disk II, ProDOS HDD, Mockingboard, AppleMouse, SSC) for the Karabas Go, Mini and Mini G boards (Xilinx Spartan-6 XC6SLX25, ISE 14.7, XST): a port of the MiST machine of [apple2efpga](https://github.com/gyurco/apple2efpga) as extended by [NanoApple2](https://github.com/MiSTle-Dev/NanoApple2); parts of [Apple-II_MiSTer](https://github.com/MiSTer-devel/Apple-II_MiSTer) later.
 
-Status: phase 0 done (2026-11-11: import, XST fit of the machine with all cards, 32 % LUT, 30 RAMB16), next phase 1 (simulation). Docs, in Russian: `docs/PLAN.md` (research, decisions, phases). Follow the phases; record a changed decision in PLAN.md. Decisions still open are listed at its end: ask the user, do not assume.
+Status: phase 0 done (2026-11-11: import, XST fit of the machine with all cards, 32 % LUT, 30 RAMB16), phase 1 done (verilator model: sim/run_boot.sh), next phase 2 (Mini G). Docs, in Russian: `docs/PLAN.md` (research, decisions, phases). Follow the phases; record a changed decision in PLAN.md. Decisions still open are listed at its end: ask the user, do not assume.
 
 All file work goes through the firmware (OSD, `FL` / `F` items, `img_sdc`): no loader or soft CPU in the core.
 
