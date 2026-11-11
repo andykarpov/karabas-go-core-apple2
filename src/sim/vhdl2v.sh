@@ -1,5 +1,5 @@
 #!/bin/bash
-# The VHDL of the machine (apple2_top and below) as one Verilog netlist for verilator: ghdl --synth,
+# The VHDL of the machine (apple2_top and below, and vga_controller of apple2_fb) as one Verilog netlist for verilator: ghdl --synth,
 # the Verilog modules it instantiates left as black boxes (bb_comp.py). Run from anywhere.
 #   sim/vhdl2v.sh <out dir>   -> <out dir>/apple2_top_ghdl.v
 set -eu
@@ -35,4 +35,6 @@ rm -f work-obj08.cf
 ghdl -a $G sim_bb.vhd
 for f in $VHD; do ghdl -a $G "$(basename "$f")"; done
 ghdl --synth $G --out=verilog apple2_top > ../apple2_top_ghdl.v
+# the colouring of the frame buffer (apple2_fb instantiates it from Verilog)
+ghdl --synth $G --out=verilog vga_controller >> ../apple2_top_ghdl.v
 wc -l ../apple2_top_ghdl.v
