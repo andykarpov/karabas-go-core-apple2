@@ -126,6 +126,7 @@ architecture rtl of apple2_top is
   signal TRACK1_RAM_WE, TRACK2_RAM_WE, TRACK1_RAM_BUSY, TRACK2_RAM_BUSY : std_logic;
   signal D1_ACTIVE, D2_ACTIVE : std_logic;
   signal DISK_READY, DISK_MOUNT, DISK_CHANGE, disk_mount_d : std_logic_vector(1 downto 0) := "00";
+  signal DISK_DSK, disk_new : std_logic_vector(1 downto 0) := "00";  -- karabas: 140K sector images, a new mount
   signal disk_chg_trg, disk_chg_trg_d : std_logic := '0';
   signal SD_LBA1, SD_LBA2, SD_LBA3 : std_logic_vector(31 downto 0);
   signal SD_DATA_IN1, SD_DATA_IN2 : std_logic_vector(7 downto 0);
@@ -335,10 +336,15 @@ begin
         else
           disk_chg_trg <= '1';
         end if;
+        disk_new <= "00";
         if img_mounted(0) = '1' then
           if unsigned(img_size) = 0 then DISK_MOUNT(0) <= '0'; else DISK_MOUNT(0) <= '1'; end if;
+          if unsigned(img_size) = 143360 then DISK_DSK(0) <= '1'; else DISK_DSK(0) <= '0'; end if;
+          disk_new(0) <= '1';
         elsif img_mounted(1) = '1' then
           if unsigned(img_size) = 0 then DISK_MOUNT(1) <= '0'; else DISK_MOUNT(1) <= '1'; end if;
+          if unsigned(img_size) = 143360 then DISK_DSK(1) <= '1'; else DISK_DSK(1) <= '0'; end if;
+          disk_new(1) <= '1';
         elsif img_mounted(2) = '1' then
           if unsigned(img_size) = 0 then hdd_mounted <= '0'; else hdd_mounted <= '1'; end if;
           hdd_protect <= hdd_wp;
@@ -346,7 +352,8 @@ begin
       end if;
 
       for i in 0 to 1 loop
-        if DISK_MOUNT(i) /= disk_mount_d(i) or (disk_chg_trg_d = '0' and disk_chg_trg = '1') then
+        -- karabas: also a new image over the old one (disk_new: DISK_MOUNT stays 1 then)
+        if DISK_MOUNT(i) /= disk_mount_d(i) or disk_new(i) = '1' or (disk_chg_trg_d = '0' and disk_chg_trg = '1') then
           DISK_CHANGE(i) <= '1';
         else
           DISK_CHANGE(i) <= '0';
@@ -364,7 +371,8 @@ begin
   TRACK1_RAM_DO <= unsigned(TRACK1_DO_v);
   TRACK2_RAM_DO <= unsigned(TRACK2_DO_v);
 
-  drive1 : entity work.floppy_track port map (
+  -- karabas: apple2_floppy (floppy_track of NanoApple2 plus the 140K sector images)
+  drive1 : entity work.apple2_floppy port map (
     clk          => clk_core,
     clk2         => clk_sys,
     reset        => dd_reset,
@@ -376,6 +384,7 @@ begin
     busy         => TRACK1_RAM_BUSY,
     change       => DISK_CHANGE(0),
     mount        => DISK_MOUNT(0),
+    dsk          => DISK_DSK(0),
     ready        => DISK_READY(0),
     active       => D1_ACTIVE,
     sd_buff_addr => sd_byte_index,
@@ -388,7 +397,7 @@ begin
     sd_ack       => sd_ack(0)
   );
 
-  drive2 : entity work.floppy_track port map (
+  drive2 : entity work.apple2_floppy port map (
     clk          => clk_core,
     clk2         => clk_sys,
     reset        => dd_reset,
@@ -400,6 +409,7 @@ begin
     busy         => TRACK2_RAM_BUSY,
     change       => DISK_CHANGE(1),
     mount        => DISK_MOUNT(1),
+    dsk          => DISK_DSK(1),
     ready        => DISK_READY(1),
     active       => D2_ACTIVE,
     sd_buff_addr => sd_byte_index,
@@ -425,8 +435,8 @@ begin
     D_OUT          => DISK_DO,
     D1_ACTIVE      => D1_ACTIVE,
     D2_ACTIVE      => D2_ACTIVE,
-    D1_WP          => floppy_wp(0),
-    D2_WP          => floppy_wp(1),
+    D1_WP          => floppy_wp(0) or DISK_DSK(0),  -- karabas: sector images read only (for now)
+    D2_WP          => floppy_wp(1) or DISK_DSK(1),
     TRACK1         => TRACK1,
     TRACK1_ADDR    => TRACK1_RAM_ADDR,
     TRACK1_DO      => TRACK1_RAM_DO,

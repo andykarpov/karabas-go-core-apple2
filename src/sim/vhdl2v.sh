@@ -13,7 +13,7 @@ declare -A VM=(
   [Gowin_pROM_apple2]=rtl/karabas/gowin_mem.v [Gowin_pROM_key]=rtl/karabas/gowin_mem.v
   [Gowin_SDPB_8k]=rtl/karabas/gowin_mem.v [Gowin_SDPB_palette]=rtl/karabas/gowin_mem.v
   [Gowin_DPB_track_buffer_b]=rtl/karabas/gowin_mem.v
-  [floppy_track]=rtl/sv2v/floppy_track.v [glb6551]=rtl/sv2v/glb6551.v
+  [apple2_floppy]=rtl/karabas/apple2_floppy.v [glb6551]=rtl/sv2v/glb6551.v
   [jt49_bus]=rtl/mockingboard/jt49/jt49_bus.v [jtframe_6805mcu]=rtl/mouse/jt6805/jtframe_6805mcu.v
   [gen_uart_mos_6551]=rtl/apple2/gen_uart.v )
 ARGS=()
