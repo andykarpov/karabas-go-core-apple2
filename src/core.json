@@ -8,10 +8,10 @@
     "eeprom_bank": 255,
     "rtc_mode": 0,
     "boards": {
-        "go": {
+        "go": {"link": 2, "build": "26111343", 
             "bitstream": "karabas_go.bin"
         },
-        "mini": {
+        "mini": {"link": 2, "build": "26111343", 
             "bitstream": "karabas_mini.bin"
         },
         "minig": {
