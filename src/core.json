@@ -8,21 +8,123 @@
     "eeprom_bank": 255,
     "rtc_mode": 0,
     "boards": {
-        "go": {"bitstream": "karabas_go.bin"},
-        "mini": {"bitstream": "karabas_mini.bin"},
-        "minig": {"bitstream": "karabas_minig.bin"}
+        "go": {
+            "bitstream": "karabas_go.bin"
+        },
+        "mini": {
+            "bitstream": "karabas_mini.bin"
+        },
+        "minig": {
+            "link": 2,
+            "bitstream": "karabas_minig.bin",
+            "build": "26111304"
+        }
     },
     "osd": [
-    {"type": "F", "name": "Disk 1", "slot": 0, "extensions": ".nib,.dsk,.do,.po", "dir": "/apple2", "hotkey": "Menu+F1"},
-    {"type": "F", "name": "Disk 2", "slot": 1, "extensions": ".nib,.dsk,.do,.po", "dir": "/apple2", "hotkey": "Menu+F2"},
-    {"type": "F", "name": "Hard disk", "slot": 2, "extensions": ".hdv,.po", "dir": "/apple2", "hotkey": "Menu+F3"},
-    {"type": "S", "name": "CPU", "options": ["65C02", "6502"], "default": 0},
-    {"type": "S", "name": "Monitor", "options": ["Color", "B&W", "Green", "Amber"], "default": 0, "hotkey": "Menu+M"},
-    {"type": "S", "name": "Palette", "options": ["NTSC", "IIgs", "AppleWin", "Custom"], "default": 0},
-    {"type": "S", "name": "Mockingbrd", "options": ["On", "Off"], "default": 0},
-    {"type": "S", "name": "Mouse", "options": ["On", "Off"], "default": 0},
-    {"type": "S", "name": "Serial", "options": ["Off", "USB UART", "ESP Wi-Fi"], "default": 0, "index": 9},
-    {"type": "S", "name": "ESP bit 7", "options": ["Clear", "Keep"], "default": 0, "index": 10, "show_if": {"item": "Serial", "value": "ESP Wi-Fi"}},
-    {"type": "T", "name": "Reset", "hotkey": "F12", "index": 8}
+        {
+            "type": "F",
+            "name": "Disk 1",
+            "slot": 0,
+            "extensions": ".nib,.dsk,.do,.po",
+            "dir": "/apple2",
+            "hotkey": "Menu+F1"
+        },
+        {
+            "type": "F",
+            "name": "Disk 2",
+            "slot": 1,
+            "extensions": ".nib,.dsk,.do,.po",
+            "dir": "/apple2",
+            "hotkey": "Menu+F2"
+        },
+        {
+            "type": "F",
+            "name": "Hard disk",
+            "slot": 2,
+            "extensions": ".hdv,.po",
+            "dir": "/apple2",
+            "hotkey": "Menu+F3"
+        },
+        {
+            "type": "S",
+            "name": "CPU",
+            "options": [
+                "65C02",
+                "6502"
+            ],
+            "default": 0
+        },
+        {
+            "type": "S",
+            "name": "Monitor",
+            "options": [
+                "Color",
+                "B&W",
+                "Green",
+                "Amber"
+            ],
+            "default": 0,
+            "hotkey": "Menu+M"
+        },
+        {
+            "type": "S",
+            "name": "Palette",
+            "options": [
+                "NTSC",
+                "IIgs",
+                "AppleWin",
+                "Custom"
+            ],
+            "default": 0
+        },
+        {
+            "type": "S",
+            "name": "Mockingbrd",
+            "options": [
+                "On",
+                "Off"
+            ],
+            "default": 0
+        },
+        {
+            "type": "S",
+            "name": "Mouse",
+            "options": [
+                "On",
+                "Off"
+            ],
+            "default": 0
+        },
+        {
+            "type": "S",
+            "name": "Serial",
+            "options": [
+                "Off",
+                "USB UART",
+                "ESP Wi-Fi"
+            ],
+            "default": 0,
+            "index": 9
+        },
+        {
+            "type": "S",
+            "name": "ESP bit 7",
+            "options": [
+                "Clear",
+                "Keep"
+            ],
+            "default": 0,
+            "index": 10,
+            "show_if": {
+                "item": "Serial",
+                "value": "ESP Wi-Fi"
+            }
+        },
+        {
+            "type": "T",
+            "name": "Reset",
+            "hotkey": "F12",
+            "index": 8
+        }
     ]
 }
