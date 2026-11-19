@@ -29,7 +29,7 @@ needs the firmware v26110415 or later. The OSD items look for files in `/apple2`
 - **Hard disk (slot 7):** a ProDOS block image (`.hdv`, `.po`), read and write.
 - **Mockingboard (slot 4):** two AY-3-8910 with their 6522s, stereo.
 - **AppleMouse (slot 5):** the USB mouse, for the programs that use the card.
-- **Super Serial Card (slot 2):** the OSD item Serial: on the USB serial port of the board (the
+- **Super Serial Card (slot 2):** the OSD item Serial: on the core serial port of the board (the second USB serial port, `/dev/serial/by-id/usb-Karabas_Go_<serial>-if02` on Linux) (the
   speed set by the Apple goes to the port) or on the Wi-Fi module of the board (ESP8266 AT
   firmware, 115200).
 - **Joystick:** the joystick of the board or a USB gamepad as the two paddles 0 / 1 and buttons 0 / 1.
